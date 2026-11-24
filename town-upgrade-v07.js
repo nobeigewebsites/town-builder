@@ -9152,6 +9152,2749 @@ console.log(
 
 /* END OF V0.8 MARITIME EXPANSION */
 
+
+/* V0.9 — COASTAL WORLD & LIT 3D SPRITES
+   Insert inside V0.7 after the V0.8 end marker.
+*/
+
+(()=>{
+'use strict';
+
+const prior={
+    detailed,
+    ground,
+    drawObject,
+    decorateCards,
+    rotateBuilding,
+    selectMode,
+    act,
+    tick,
+    refreshPanel,
+    render,
+    calculate,
+    rebuildRoutes,
+    drawSeaVessel
+};
+
+const V=state.v9||(state.v9={});
+
+V.auto??={};
+V.imports??=0;
+V.passengers??=0;
+
+const norm=id=>
+    id.replace(/^v[6789]_/,'').toLowerCase();
+
+const rand=(i,j=0)=>hash(i,j,91);
+
+const rgb=s=>
+    [1,3,5].map(
+        i=>parseInt(s.slice(i,i+2),16)
+    );
+
+const cache=new Map();
+const grounds=new Map();
+
+let bytes=0;
+let facing=0;
+let lastSelected='';
+let ferries=[];
+
+const budget=48*1024*1024;
+
+const isPort=id=>seaPorts.has(id);
+
+// ==========================================
+// 01 — GRAPHICS MODEL CLASSIFICATION
+// ==========================================
+
+function type9(id){
+
+    const t=TYPES[id];
+
+    if(!t||isPort(id))return null;
+
+    if(t.group==='Homes')return 'home';
+
+    if(
+        kind(id)==='shop'||
+        id==='v9_fishmonger'||
+        id==='v9_cruise'
+    )return 'shop';
+
+    if([
+        'tree',
+        'oak',
+        'pine',
+        'autumn',
+        'palm',
+        'cherry',
+        'v6_magnolia',
+        'v6_weepingWillow',
+        'v6_birch',
+        'v6_redwood',
+        'v6_wisteria'
+    ].includes(id))return 'tree';
+
+    if([
+        'park',
+        'cityPark',
+        'botanic',
+        'v7_royalGarden',
+        'v6_japaneseGarden',
+        'v6_formalGarden'
+    ].includes(id))return 'park';
+
+    if([
+        'v9_fishCannery',
+        'v9_coldStore'
+    ].includes(id))return 'factory';
+
+    return null;
+}
+
+// ==========================================
+// 02 — NEW MARITIME BUILDINGS
+// ==========================================
+
+function add(
+    id,name,cost,rent,group,section
+){
+
+    TYPES[id]={
+        name,cost,rent,
+        pop:0,group,section
+    };
+}
+
+add(
+    'v9_fishmonger',
+    'Fishmonger',
+    280,35,
+    'Business','Shops'
+);
+
+add(
+    'v9_fishCannery',
+    'Fish cannery',
+    540,50,
+    'Industry','Industry'
+);
+
+add(
+    'v9_coldStore',
+    'Cold storage warehouse',
+    420,20,
+    'Industry','Waterfront'
+);
+
+add(
+    'v9_cruise',
+    'Cruise terminal',
+    1400,90,
+    'Business','Waterfront'
+);
+
+sizes.v9_fishCannery=[2,1];
+sizes.v9_coldStore=[2,1];
+sizes.v9_cruise=[3,2];
+
+coastalTypes.add('v9_cruise');
+
+recipes.v9_fishmonger=[
+    'fish',2,'fresh seafood',2
+];
+
+recipes.v9_fishCannery=[
+    'fish',3,'canned fish',3
+];
+
+recipes.seafood=[
+    'fish',2,'seafood meals',2
+];
+
+salePrices['fresh seafood']=22;
+salePrices['canned fish']=25;
+salePrices['seafood meals']=30;
+
+// ==========================================
+// 03 — SOFTWARE 3D GRAPHICS ENGINE
+//
+// Depth-buffer rendering
+// Directional lighting
+// Surface textures
+// Four real viewing orientations
+// Memory-limited sprite caching
+// ==========================================
+
+function sprite(id,w,h,r=0){
+
+    const type=type9(id);
+
+    if(!type)return null;
+
+    r=((r%4)+4)%4;
+
+    const k=[id,w,h,r].join(':');
+
+    if(cache.has(k)){
+
+        const z=cache.get(k);
+
+        cache.delete(k);
+        cache.set(k,z);
+
+        return z;
+    }
+
+    const localW=r%2?h:w;
+    const localH=r%2?w:h;
+
+    const width=Math.ceil(
+        (w+h)*HW+26
+    );
+
+    const origin=
+        148+(w+h)*HH/2;
+
+    const height=Math.ceil(
+        origin+(w+h)*HH/2+12
+    );
+
+    const scale=1.5;
+
+    const c=document.createElement(
+        'canvas'
+    );
+
+    c.width=Math.ceil(width*scale);
+    c.height=Math.ceil(height*scale);
+
+    const g=c.getContext('2d');
+
+    const Wp=c.width;
+    const Hp=c.height;
+
+    const pixels=g.createImageData(
+        Wp,Hp
+    );
+
+    const data=pixels.data;
+
+    const depth=new Float32Array(
+        Wp*Hp
+    );
+
+    depth.fill(-Infinity);
+
+    const seed=[...id].reduce(
+        (a,b)=>
+            (a*31+b.charCodeAt(0))>>>0,
+        7
+    );
+
+    function rotate(x,y){
+
+        return r===1
+            ?[y,-x]
+            :r===2
+                ?[-x,-y]
+                :r===3
+                    ?[-y,x]
+                    :[x,y];
+    }
+
+    function project3(p){
+
+        const [x,y]=rotate(
+            p[0],p[1]
+        );
+
+        const z=p[2];
+
+        return [
+
+            (
+                width/2+
+                (x-y)*HW
+            )*scale,
+
+            (
+                origin+
+                (x+y)*HH-
+                z*HW
+            )*scale,
+
+            x+y+z*HW/(2*HH)
+        ];
+    }
+
+    // Rasterise a 3D triangular surface.
+
+    function tri(A,B,C,col){
+
+        const a=project3(A);
+        const b=project3(B);
+        const c=project3(C);
+
+        const u=B.map(
+            (v,i)=>v-A[i]
+        );
+
+        const v=C.map(
+            (v,i)=>v-A[i]
+        );
+
+        let nx=
+            u[1]*v[2]-u[2]*v[1];
+
+        let ny=
+            u[2]*v[0]-u[0]*v[2];
+
+        let nz=
+            u[0]*v[1]-u[1]*v[0];
+
+        const n=Math.hypot(
+            nx,ny,nz
+        )||1;
+
+        [nx,ny]=rotate(nx/n,ny/n);
+
+        nz/=n;
+
+        if(
+            nx+ny+nz*2*HH/HW<-.0001
+        ){
+
+            nx=-nx;
+            ny=-ny;
+            nz=-nz;
+        }
+
+        const light=
+
+            .72+.35*Math.max(
+                0,
+                -.50*nx+
+                .32*ny+
+                .80*nz
+            );
+
+        const base=rgb(col);
+
+        const den=
+
+            (b[1]-c[1])*
+            (a[0]-c[0])+
+
+            (c[0]-b[0])*
+            (a[1]-c[1]);
+
+        if(Math.abs(den)<.001)return;
+
+        const minX=Math.max(
+            0,
+            Math.floor(
+                Math.min(a[0],b[0],c[0])
+            )
+        );
+
+        const maxX=Math.min(
+            Wp-1,
+            Math.ceil(
+                Math.max(a[0],b[0],c[0])
+            )
+        );
+
+        const minY=Math.max(
+            0,
+            Math.floor(
+                Math.min(a[1],b[1],c[1])
+            )
+        );
+
+        const maxY=Math.min(
+            Hp-1,
+            Math.ceil(
+                Math.max(a[1],b[1],c[1])
+            )
+        );
+
+        for(let y=minY;y<=maxY;y++){
+
+            for(let x=minX;x<=maxX;x++){
+
+                const p=(
+
+                    (b[1]-c[1])*
+                    (x+.5-c[0])+
+
+                    (c[0]-b[0])*
+                    (y+.5-c[1])
+
+                )/den;
+
+                const q=(
+
+                    (c[1]-a[1])*
+                    (x+.5-c[0])+
+
+                    (a[0]-c[0])*
+                    (y+.5-c[1])
+
+                )/den;
+
+                const s=1-p-q;
+
+                if(
+                    p<-.0001||
+                    q<-.0001||
+                    s<-.0001
+                )continue;
+
+                const z=
+
+                    p*a[2]+
+                    q*b[2]+
+                    s*c[2];
+
+                const i=y*Wp+x;
+
+                if(z<depth[i]-.00001)
+                    continue;
+
+                depth[i]=z;
+
+                const grain=
+
+                    (
+                        (x*13+y*23+seed)%11
+                    )-5;
+
+                for(let j=0;j<3;j++){
+
+                    data[i*4+j]=
+
+                        base[j]*light+
+                        grain;
+                }
+
+                data[i*4+3]=255;
+            }
+        }
+    }
+
+    function quad(a,b,c,d,col){
+
+        tri(a,b,c,col);
+        tri(a,c,d,col);
+    }
+
+    // Solid 3D cuboid.
+
+    function box(a,b,c,d,z,H,col){
+
+        if(
+            c<=a||
+            d<=b||
+            H<=0
+        )return;
+
+        const A=[a,b,z];
+        const B=[c,b,z];
+        const C=[c,d,z];
+        const D=[a,d,z];
+
+        const E=[a,b,z+H];
+        const F=[c,b,z+H];
+        const G=[c,d,z+H];
+        const I=[a,d,z+H];
+
+        quad(A,B,F,E,col);
+        quad(B,C,G,F,col);
+        quad(C,D,I,G,col);
+        quad(D,A,E,I,col);
+        quad(E,F,G,I,col);
+    }
+
+    // Rounded 3D shapes for vegetation.
+
+    function ellipsoid(
+        x,y,z,rx,ry,rz,col
+    ){
+
+        const p=(a,b)=>[
+
+            x+rx*Math.sin(a)*Math.cos(b),
+
+            y+ry*Math.sin(a)*Math.sin(b),
+
+            z+rz*Math.cos(a)
+        ];
+
+        for(let i=0;i<7;i++){
+
+            for(let j=0;j<12;j++){
+
+                const a=i*Math.PI/7;
+
+                const b=(i+1)*Math.PI/7;
+
+                const u=j*Math.PI/6;
+
+                const v=(j+1)*Math.PI/6;
+
+                quad(
+                    p(a,u),
+                    p(b,u),
+                    p(b,v),
+                    p(a,v),
+                    col
+                );
+            }
+        }
+    }
+
+    // ======================================
+    // 04 — THREE DIMENSIONAL VEGETATION
+    // ======================================
+
+    function tree(
+        x,y,s=1,col='#78ae49'
+    ){
+
+        box(
+            x-.035*s,
+            y-.035*s,
+
+            x+.035*s,
+            y+.035*s,
+
+            0,.56*s,
+            '#a17951'
+        );
+
+        for(const [a,b,z,q] of [
+
+            [-.11,0,.66,.24],
+
+            [.11,.06,.69,.23],
+
+            [0,-.10,.76,.25],
+
+            [0,.10,.78,.22],
+
+            [0,0,.99,.22]
+
+        ]){
+
+            ellipsoid(
+
+                x+a*s,
+
+                y+b*s,
+
+                z*s,
+
+                q*s,
+
+                q*s,
+
+                q*1.2*s,
+
+                col
+            );
+        }
+    }
+
+    function flowers(x,y,n){
+
+        for(let i=0;i<n;i++){
+
+            const a=x+i*.075;
+
+            ellipsoid(
+
+                a,y,.055,
+
+                .047,.045,.055,
+
+                '#6d9d45'
+            );
+
+            ellipsoid(
+
+                a,y,.11,
+
+                .035,.033,.025,
+
+                [
+                    '#f3a0be',
+                    '#ffcf63',
+                    '#fff1cd'
+                ][i%3]
+            );
+        }
+    }
+
+    // ======================================
+    // 05 — INDIVIDUAL ROOF TILES
+    // ======================================
+
+    function roof(a,b,c,d,z,rise,col){
+
+        const m=(a+c)/2;
+
+        tri(
+            [a,b,z],
+            [c,b,z],
+            [m,b,z+rise],
+            wall
+        );
+
+        tri(
+            [a,d,z],
+            [c,d,z],
+            [m,d,z+rise],
+            wall
+        );
+
+        for(const side of [0,1]){
+
+            const edge=side?c:a;
+
+            for(let i=0;i<9;i++){
+
+                const f=i/9;
+
+                const j=(i+1)/9;
+
+                const X=
+                    edge+(m-edge)*f;
+
+                const Y=
+                    edge+(m-edge)*j;
+
+                const Z=z+rise*f;
+
+                const Q=z+rise*j;
+
+                const n=Math.max(
+
+                    5,
+
+                    Math.round((d-b)*10)
+                );
+
+                for(let t=0;t<n;t++){
+
+                    const p=
+
+                        b+(d-b)*t/n;
+
+                    const q=
+
+                        b+(d-b)*(t+1)/n;
+
+                    const color=rgb(col)
+                        .map(v=>clamp(
+
+                            v+
+
+                            Math.floor(
+                                rand(
+                                    i*11+t,
+                                    seed%97
+                                )*23
+                            )-11,
+
+                            0,255
+                        ));
+
+                    const hex=
+
+                        '#'+color.map(
+
+                            v=>v.toString(16)
+                                .padStart(2,'0')
+
+                        ).join('');
+
+                    quad(
+
+                        [X,p,Z],
+
+                        [X,q,Z],
+
+                        [Y,q,Q],
+
+                        [Y,p,Q],
+
+                        hex
+                    );
+
+                    quad(
+
+                        [X,p,Z+.006],
+
+                        [X,q,Z+.006],
+
+                        [
+                            X+(Y-X)*.09,
+                            q,
+                            Z+(Q-Z)*.09+.006
+                        ],
+
+                        [
+                            X+(Y-X)*.09,
+                            p,
+                            Z+(Q-Z)*.09+.006
+                        ],
+
+                        '#a67462'
+                    );
+                }
+            }
+        }
+    }
+
+    // ======================================
+    // 06 — ARCHITECTURAL COLOUR COLLECTION
+    // ======================================
+
+    const pal=[
+
+        [
+            '#f8d99c',
+            '#c36249',
+            '#527e79'
+        ],
+
+        [
+            '#f3e9cc',
+            '#577e9f',
+            '#769bb1'
+        ],
+
+        [
+            '#e8ac8d',
+            '#845d50',
+            '#789858'
+        ],
+
+        [
+            '#e9e0aa',
+            '#7c9668',
+            '#d07866'
+        ],
+
+        [
+            '#efd4d9',
+            '#8974a7',
+            '#ab6889'
+        ]
+    ];
+
+    let [wall,roofCol,accent]=
+
+        pal[seed%pal.length];
+
+    const id0=norm(id);
+
+    const a=-localW/2+.055;
+
+    const b=-localH/2+.055;
+
+    const C=localW/2-.055;
+
+    const D=localH/2-.055;
+
+    if(/tudor|thatched/.test(id0)){
+
+        wall='#f1dfb8';
+
+        roofCol='#987346';
+
+        accent='#795239';
+    }
+
+    if(/greek/.test(id0)){
+
+        wall='#fff4da';
+
+        roofCol='#6595cb';
+
+        accent='#4c83b2';
+    }
+
+    if(/italian|tuscan|spanish/.test(id0)){
+
+        wall='#f4cb8b';
+
+        roofCol='#be6244';
+
+        accent='#638d65';
+    }
+
+    if(/dutch|victorian|brownstone/.test(id0)){
+
+        wall='#dba185';
+
+        roofCol='#62788c';
+    }
+
+    // ======================================
+    // 07 — TREES AND LANDSCAPED PARKS
+    // ======================================
+
+    if(type==='tree'){
+
+        tree(
+
+            0,0,1.05,
+
+            /cherry|magnolia|wisteria/.test(id0)
+
+                ?'#dc94ba'
+
+                :/autumn/.test(id0)
+
+                    ?'#d6a04e'
+
+                    :'#78ad4e'
+        );
+
+    }else if(type==='park'){
+
+        box(
+            a,b,C,D,
+            -.018,.02,
+            '#a5ce74'
+        );
+
+        box(
+            -.075,b,.075,D,
+            0,.018,
+            '#e7d2a8'
+        );
+
+        box(
+            a,-.075,C,.075,
+            0,.019,
+            '#e7d2a8'
+        );
+
+        for(const [x,y] of [
+
+            [a+.19,b+.19],
+
+            [C-.19,b+.19],
+
+            [a+.19,D-.19],
+
+            [C-.19,D-.19]
+
+        ]){
+
+            tree(
+
+                x,y,.64,
+
+                /japanese/.test(id0)
+
+                    ?'#d898bb'
+
+                    :'#7caf53'
+            );
+        }
+
+        ellipsoid(
+
+            0,0,.025,
+
+            .21,.21,.05,
+
+            '#e5d4b0'
+        );
+
+        ellipsoid(
+
+            0,0,.065,
+
+            .17,.17,.025,
+
+            '#70c9df'
+        );
+
+        flowers(
+
+            a+.1,
+
+            D-.07,
+
+            Math.max(
+
+                3,
+
+                Math.floor(
+                    (C-a-.18)/.075
+                )
+            )
+        );
+
+    // ======================================
+    // 08 — HOUSES AND COMMERCIAL BUILDINGS
+    // ======================================
+
+    }else{
+
+        const home=type==='home';
+
+        const shop=type==='shop';
+
+        const tall=
+
+            /apartment|penthouse|student|tower/
+
+                .test(id0);
+
+        const small=
+
+            /cottage|bungalow|cabin|beachhut/
+
+                .test(id0);
+
+        const modern=
+
+            /modern|artdeco|apartment|penthouse|greek|supermarket|superstore|electronics/
+
+                .test(id0)||
+
+            type==='factory';
+
+        const floors=
+
+            tall?4:
+
+            small?1:
+
+            /townhouse|dutch|mansion|manor|terraced/
+
+                .test(id0)?3:
+
+            home?2:1;
+
+        const H=.19+floors*.34;
+
+        const x=a+.10;
+
+        const y=b+.07;
+
+        const X=C-.10;
+
+        const Y=D-.19;
+
+        // Property foundations.
+
+        box(
+
+            a,b,C,D,
+
+            -.035,.04,
+
+            home
+                ?'#b0d480'
+                :'#dfd0ad'
+        );
+
+        box(
+
+            x-.025,y-.025,
+
+            X+.025,Y+.025,
+
+            0,.07,
+
+            '#d9c5a0'
+        );
+
+        box(
+
+            x,y,X,Y,
+
+            .07,H-.07,
+
+            wall
+        );
+
+        // Four individually modelled elevations.
+
+        function pane(u,v,z,side){
+
+            if(side===0){
+
+                box(
+                    u-.072,Y-.01,
+                    u+.072,Y+.025,
+                    z,.24,
+                    '#f8e5bb'
+                );
+
+                box(
+                    u-.055,Y+.026,
+                    u+.055,Y+.031,
+                    z+.025,.19,
+                    '#548cab'
+                );
+
+                box(
+                    u-.008,Y+.032,
+                    u+.008,Y+.040,
+                    z+.025,.19,
+                    '#fff1d3'
+                );
+
+                box(
+                    u-.055,Y+.032,
+                    u+.055,Y+.040,
+                    z+.11,.015,
+                    '#fff1d3'
+                );
+            }
+
+            if(side===1){
+
+                box(
+                    X-.01,v-.072,
+                    X+.025,v+.072,
+                    z,.24,
+                    '#f8e5bb'
+                );
+
+                box(
+                    X+.026,v-.055,
+                    X+.031,v+.055,
+                    z+.025,.19,
+                    '#548cab'
+                );
+
+                box(
+                    X+.032,v-.008,
+                    X+.04,v+.008,
+                    z+.025,.19,
+                    '#fff1d3'
+                );
+            }
+
+            if(side===2){
+
+                box(
+                    u-.072,y-.025,
+                    u+.072,y+.01,
+                    z,.24,
+                    '#f8e5bb'
+                );
+
+                box(
+                    u-.055,y-.033,
+                    u+.055,y-.026,
+                    z+.025,.19,
+                    '#548cab'
+                );
+            }
+
+            if(side===3){
+
+                box(
+                    x-.025,v-.072,
+                    x+.01,v+.072,
+                    z,.24,
+                    '#f8e5bb'
+                );
+
+                box(
+                    x-.033,v-.055,
+                    x-.026,v+.055,
+                    z+.025,.19,
+                    '#548cab'
+                );
+            }
+        }
+
+        const nx=Math.max(
+
+            2,
+
+            Math.round((X-x)*4)
+        );
+
+        const ny=Math.max(
+
+            2,
+
+            Math.round((Y-y)*4)
+        );
+
+        for(let f=0;f<floors;f++){
+
+            const z=.13+f*.34;
+
+            for(let i=0;i<nx;i++){
+
+                const u=
+
+                    x+
+
+                    (i+.5)*(X-x)/nx;
+
+                if(f||Math.abs(u)>.13){
+
+                    pane(u,0,z,0);
+                }
+
+                pane(u,0,z,2);
+            }
+
+            for(let i=0;i<ny;i++){
+
+                const v=
+
+                    y+
+
+                    (i+.5)*(Y-y)/ny;
+
+                pane(0,v,z,1);
+
+                pane(0,v,z,3);
+            }
+
+            if(f){
+
+                box(
+
+                    x-.015,y-.015,
+
+                    X+.015,Y+.015,
+
+                    z-.045,.035,
+
+                    '#e8d8b6'
+                );
+            }
+        }
+
+        // Front doors and pathways.
+
+        box(
+
+            -.10,Y-.015,
+
+            .10,Y+.027,
+
+            .045,.35,
+
+            '#f5e6bd'
+        );
+
+        box(
+
+            -.077,Y+.028,
+
+            .077,Y+.039,
+
+            .05,.30,
+
+            accent
+        );
+
+        box(
+
+            -.10,Y+.04,
+
+            .10,D,
+
+            0,.025,
+
+            '#e6d3ae'
+        );
+
+        // Timber-framed houses.
+
+        if(/tudor|logcabin|scandi/.test(id0)){
+
+            for(const u of [x,0,X]){
+
+                box(
+
+                    u-.022,Y,
+
+                    u+.022,Y+.027,
+
+                    .07,H-.07,
+
+                    '#80563a'
+                );
+            }
+        }
+
+        // Modern architecture.
+
+        if(modern){
+
+            box(
+
+                x-.035,y-.035,
+
+                X+.035,Y+.035,
+
+                H,.09,
+
+                roofCol
+            );
+
+            box(
+
+                x+.03,y+.03,
+
+                X-.03,Y-.03,
+
+                H+.09,.025,
+
+                '#d6d8cb'
+            );
+
+            box(
+
+                x+.06,y+.06,
+
+                x+.22,y+.22,
+
+                H+.115,.15,
+
+                accent
+            );
+
+        }else{
+
+            roof(
+
+                x-.045,y-.045,
+
+                X+.045,Y+.045,
+
+                H,.38,
+
+                roofCol
+            );
+
+            // Chimneys.
+
+            box(
+
+                X-.16,y+.09,
+
+                X-.055,y+.20,
+
+                H+.12,.34,
+
+                '#bb8063'
+            );
+
+            box(
+
+                X-.18,y+.07,
+
+                X-.035,y+.22,
+
+                H+.46,.045,
+
+                '#e0af8c'
+            );
+        }
+
+        // Shopfront awnings.
+
+        if(shop){
+
+            const n=10;
+
+            for(let i=0;i<n;i++){
+
+                const u=x+(X-x)*i/n;
+
+                const v=x+(X-x)*(i+1)/n;
+
+                quad(
+
+                    [u,Y,.48],
+
+                    [v,Y,.48],
+
+                    [v,Y+.19,.34],
+
+                    [u,Y+.19,.34],
+
+                    i%2
+
+                        ?'#fff0ce'
+
+                        :accent
+                );
+            }
+
+            box(
+
+                x,Y+.185,
+
+                X,Y+.20,
+
+                .29,.05,
+
+                accent
+            );
+        }
+
+        // Residential balconies and railings.
+
+        if(home&&floors>1&&!modern){
+
+            box(
+
+                -.23,Y,
+
+                .23,Y+.10,
+
+                .42,.045,
+
+                '#e4d0a5'
+            );
+
+            for(let i=0;i<6;i++){
+
+                box(
+
+                    -.22+i*.085,
+
+                    Y+.085,
+
+                    -.20+i*.085,
+
+                    Y+.105,
+
+                    .465,.13,
+
+                    '#f6e7c7'
+                );
+            }
+
+            box(
+
+                -.24,Y+.08,
+
+                .24,Y+.11,
+
+                .595,.025,
+
+                '#f6e7c7'
+            );
+        }
+
+        // Front gardens.
+
+        if(home){
+
+            flowers(
+
+                a+.05,
+
+                D-.055,
+
+                Math.max(
+
+                    3,
+
+                    Math.floor(
+                        (C-a-.12)/.075
+                    )
+                )
+            );
+
+            if(localW>1||localH>1){
+
+                tree(
+
+                    a+.12,
+
+                    b+.12,
+
+                    .48
+                );
+            }
+        }
+
+        // Industrial chimneys.
+
+        if(type==='factory'){
+
+            box(
+
+                X-.15,y+.04,
+
+                X-.03,y+.16,
+
+                H,.85,
+
+                '#b78061'
+            );
+
+            box(
+
+                X-.17,y+.02,
+
+                X-.01,y+.18,
+
+                H+.85,.05,
+
+                '#e1b390'
+            );
+        }
+    }
+
+    // ======================================
+    // 09 — RENDER AND CACHE THE 3D MODEL
+    // ======================================
+
+    g.putImageData(pixels,0,0);
+
+    // Soft ground shadows.
+
+    g.save();
+
+    g.globalCompositeOperation=
+        'destination-over';
+
+    g.scale(scale,scale);
+
+    g.translate(width/2,origin);
+
+    const sh=g.createRadialGradient(
+
+        5,3,1,
+
+        5,3,
+
+        Math.max(
+
+            15,
+
+            (w+h)*HW*.40
+        )
+    );
+
+    sh.addColorStop(
+        0,'#37492c38'
+    );
+
+    sh.addColorStop(
+        1,'#37492c00'
+    );
+
+    g.scale(1,.48);
+
+    g.fillStyle=sh;
+
+    g.fillRect(
+
+        -width/2,-80,
+
+        width,160
+    );
+
+    g.restore();
+
+    let l=Wp;
+
+    let top=Hp;
+
+    let R=0;
+
+    let B=0;
+
+    for(let y=0;y<Hp;y++){
+
+        for(let x=0;x<Wp;x++){
+
+            if(data[(y*Wp+x)*4+3]){
+
+                l=Math.min(l,x);
+
+                R=Math.max(R,x);
+
+                top=Math.min(top,y);
+
+                B=Math.max(B,y);
+            }
+        }
+    }
+
+    const result={
+
+        c,width,height,origin,
+
+        bounds:[
+
+            l,top,
+
+            Math.max(1,R-l+1),
+
+            Math.max(1,B-top+1)
+        ]
+    };
+
+    const size=Wp*Hp*4;
+
+    // Limit the memory used by the new sprite cache.
+
+    while(
+        cache.size&&
+        bytes+size>budget
+    ){
+
+        const first=
+
+            cache.keys().next().value;
+
+        const v=cache.get(first);
+
+        bytes-=
+
+            v.c.width*
+
+            v.c.height*4;
+
+        cache.delete(first);
+    }
+
+    cache.set(k,result);
+
+    bytes+=size;
+
+    return result;
+}
+
+// Keep existing artwork for all other buildings.
+
+detailed=function(id,w,h,r=0){
+
+    return sprite(id,w,h,r)||
+
+        prior.detailed(id,w,h,r);
+};
+
+// ==========================================
+// 10 — HIGHER QUALITY TERRAIN
+// ==========================================
+
+ground=function(t){
+
+    const v=Math.floor(t.variant*8);
+
+    const k=t.type+':'+v;
+
+    if(grounds.has(k)){
+
+        return grounds.get(k);
+    }
+
+    const c=document.createElement(
+        'canvas'
+    );
+
+    c.width=HW*4;
+
+    c.height=HH*4;
+
+    const g=c.getContext('2d');
+
+    g.scale(2,2);
+
+    g.translate(HW,HH);
+
+    const water=t.type==='water';
+
+    const sand=t.type==='sand';
+
+    const color=
+
+        water
+
+            ?['#80d7e4','#43adc9']
+
+            :sand
+
+                ?['#ffe7b0','#edc587']
+
+                :['#a9d279','#a1cb72'];
+
+    const p=g.createLinearGradient(
+
+        -HW,-HH,
+
+        HW,HH
+    );
+
+    p.addColorStop(0,color[0]);
+
+    p.addColorStop(1,color[1]);
+
+    g.beginPath();
+
+    g.moveTo(0,-HH);
+
+    g.lineTo(HW,0);
+
+    g.lineTo(0,HH);
+
+    g.lineTo(-HW,0);
+
+    g.closePath();
+
+    g.fillStyle=p;
+
+    g.fill();
+
+    g.clip();
+
+    // Fine grass, sand and water texture.
+
+    for(let i=0;i<70;i++){
+
+        const x=
+
+            (rand(i,v)-.5)*HW*2;
+
+        const y=
+
+            (rand(i,v+12)-.5)*HH*2;
+
+        g.fillStyle=
+
+            water
+
+                ?'#efffff38'
+
+                :sand
+
+                    ?'#b28c5535'
+
+                    :'#558c3b26';
+
+        g.fillRect(
+
+            x,y,
+
+            water?3+i%7:1.1,
+
+            water?.7:1.2
+        );
+    }
+
+    grounds.set(k,c);
+
+    return c;
+};
+
+// Wild trees use a cached 3D oak model.
+
+drawObject=function(t){
+
+    const k=key(t.x,t.y);
+
+    if(
+
+        !occupied.has(k)&&
+
+        t.tree&&
+
+        !town.cleared[k]&&
+
+        TYPES.oak
+    ){
+
+        const im=sprite('oak',1,1,0);
+
+        const [x,y]=project(t.x,t.y);
+
+        const s=.75+t.variant*.25;
+
+        ctx.drawImage(
+
+            im.c,
+
+            x-im.width*s/2,
+
+            y-im.origin*s,
+
+            im.width*s,
+
+            im.height*s
+        );
+
+        return;
+    }
+
+    prior.drawObject(t);
+};
+
+// ==========================================
+// 11 — FOUR-DIRECTION BUILDING ROTATION
+// ==========================================
+
+selectMode=function(m){
+
+    prior.selectMode(m);
+
+    if(
+
+        m==='build'&&
+
+        selected!==lastSelected
+    ){
+
+        lastSelected=selected;
+
+        facing=rotation%2;
+    }
+};
+
+const rotateBtn=seaRotateButton;
+
+const oldClick=rotateBtn?.onclick;
+
+if(rotateBtn){
+
+    rotateBtn.onclick=()=>{
+
+        if(
+
+            mode==='build'&&
+
+            type9(selected)
+        ){
+
+            facing=(facing+1)%4;
+
+            rotation=facing%2;
+
+            message(
+
+                title(selected)+
+
+                ' • Direction '+
+
+                (facing+1)+'/4'
+            );
+
+            dirty=true;
+
+            return;
+        }
+
+        if(mode==='inspect'&&inspected){
+
+            rotateBuilding(inspected);
+
+            return;
+        }
+
+        oldClick?.();
+    };
+}
+
+rotateBuilding=function(k){
+
+    const b=town.buildings[k];
+
+    if(!b)return;
+
+    // Correct the existing harbour rotation system.
+
+    if(isPort(b.type)){
+
+        if(state.sea[k]){
+
+            message(
+                'Vessel is at sea.'
+            );
+
+            return;
+        }
+
+        const start=harbourFacing(k,b);
+
+        for(let i=1;i<4;i++){
+
+            const f=(start+i)%4;
+
+            const swap=
+
+                f%2!==start%2;
+
+            const w=
+
+                swap
+
+                    ?b.h||1
+
+                    :b.w||1;
+
+            const h=
+
+                swap
+
+                    ?b.w||1
+
+                    :b.h||1;
+
+            if(
+
+                valid(...xy(k),w,h,k)&&
+
+                shoreSides(
+
+                    ...xy(k),w,h
+
+                ).some(s=>s.facing===f)
+            ){
+
+                b.w=w;
+
+                b.h=h;
+
+                b.facing=f;
+
+                b.rot=f%2;
+
+                changed(
+
+                    'Quay rotated.',
+
+                    true
+                );
+
+                return;
+            }
+        }
+
+        message(
+
+            'No other quay direction has water access.'
+        );
+
+        return;
+    }
+
+    // Older graphics retain their original rotation.
+
+    if(!type9(b.type)){
+
+        return prior.rotateBuilding(k);
+    }
+
+    const r=((b.rot||0)+1)%4;
+
+    const w=b.h||1;
+
+    const h=b.w||1;
+
+    if(!valid(...xy(k),w,h,k)){
+
+        message(
+            'Not enough space to rotate.'
+        );
+
+        return;
+    }
+
+    b.w=w;
+
+    b.h=h;
+
+    b.rot=r;
+
+    changed(
+
+        'Rotated to direction '+(r+1),
+
+        true
+    );
+};
+
+// ==========================================
+// 12 — CONSTRUCTION INTEGRATION
+// ==========================================
+
+act=function(x,y){
+
+    const k=key(x,y);
+
+    if(
+
+        layer==='surface'&&
+
+        mode==='bridge'&&
+
+        Object.values(state.sea)
+
+            .some(t=>t.route?.includes(k))
+    ){
+
+        message(
+            'A vessel is using this waterway.'
+        );
+
+        return;
+    }
+
+    const before=town.buildings[k];
+
+    const building=
+
+        layer==='surface'&&
+
+        mode==='build';
+
+    const movingFrom=moving;
+
+    prior.act(x,y);
+
+    const b=town.buildings[k];
+
+    if(
+
+        building&&
+
+        b&&
+
+        b!==before&&
+
+        type9(b.type)
+    ){
+
+        b.rot=facing;
+
+        changed();
+    }
+
+    // Preserve automatic fishing settings when moving.
+
+    if(
+
+        movingFrom&&
+
+        !moving&&
+
+        b&&
+
+        b!==before&&
+
+        V.auto[movingFrom]
+    ){
+
+        V.auto[k]=true;
+
+        delete V.auto[movingFrom];
+
+        save();
+    }
+
+    // Remove settings belonging to deleted buildings.
+
+    if(
+
+        layer==='surface'&&
+
+        ['sell','bulldoze'].includes(mode)
+    ){
+
+        for(const a of Object.keys(V.auto)){
+
+            if(!town.buildings[a]){
+
+                delete V.auto[a];
+            }
+        }
+
+        save();
+    }
+};
+
+// Boats cannot sail through road bridges.
+
+const oldNavigable=navigableWater;
+
+navigableWater=function(x,y){
+
+    return oldNavigable(x,y)&&
+
+        !town.buildings[key(x,y)]?.bridge;
+};
+
+// Correct saved harbour directions where possible.
+
+for(const [k,b] of Object.entries(
+
+    town.buildings
+)){
+
+    if(
+
+        isPort(b.type)&&
+
+        !state.sea[k]
+    ){
+
+        alignHarbour(k,b,b.facing);
+    }
+}
+
+// ==========================================
+// 13 — COMMERCIAL SHIPPING IMPORTS
+// ==========================================
+
+const imports={
+
+    wheat:12,
+
+    corn:14,
+
+    timber:13,
+
+    fish:18,
+
+    flour:19,
+
+    eggs:12,
+
+    milk:13
+};
+
+function importGoods(k,goods){
+
+    const b=town.buildings[k];
+
+    if(
+
+        b?.type!=='v8_shippingPort'||
+
+        state.sea[k]||
+
+        !Object.hasOwn(imports,goods)
+    )return;
+
+    const route=findSeaRoute(k,b);
+
+    const n=Math.min(
+
+        10,
+
+        999-(state.stock[goods]||0)
+    );
+
+    const cost=
+
+        n*imports[goods]+15;
+
+    if(route.length<3){
+
+        message(
+            'Port needs open water.'
+        );
+
+        return;
+    }
+
+    if(n<=0||town.cash<cost){
+
+        message(
+            'Not enough cash or storage.'
+        );
+
+        return;
+    }
+
+    town.cash-=cost;
+
+    state.sea[k]={
+
+        type:'import',
+
+        goods,
+
+        amount:n,
+
+        route,
+
+        start:state.tick,
+
+        end:state.tick+4
+    };
+
+    changed(
+        'Import ship dispatched.'
+    );
+}
+
+drawSeaVessel=function(trip){
+
+    prior.drawSeaVessel(
+
+        trip.type==='import'
+
+            ?{...trip,type:'cargo'}
+
+            :trip
+    );
+};
+
+// ==========================================
+// 14 — CONNECTED PASSENGER FERRY NETWORK
+// ==========================================
+
+function pathBetween(nodes,starts,ends){
+
+    const target=new Set(ends);
+
+    const parent=new Map();
+
+    const q=[];
+
+    for(const k of starts){
+
+        if(nodes.has(k)&&!parent.has(k)){
+
+            q.push(k);
+
+            parent.set(k,null);
+        }
+    }
+
+    for(let i=0;i<q.length;i++){
+
+        const k=q[i];
+
+        if(target.has(k)){
+
+            const route=[];
+
+            for(
+
+                let a=k;
+
+                a!==null;
+
+                a=parent.get(a)
+            ){
+
+                route.push(a);
+            }
+
+            return route.reverse();
+        }
+
+        for(const [a,b] of D){
+
+            const [x,y]=xy(k);
+
+            const n=key(x+a,y+b);
+
+            if(
+
+                nodes.has(n)&&
+
+                !parent.has(n)
+            ){
+
+                parent.set(n,k);
+
+                q.push(n);
+            }
+        }
+    }
+
+    return [];
+}
+
+rebuildRoutes=function(){
+
+    prior.rebuildRoutes();
+
+    ferries=[];
+
+    const ports=
+
+        Object.entries(town.buildings)
+
+        .filter(
+
+            ([k,b])=>
+
+                b.type==='v6_ferry'&&
+
+                roadAccess(k,b)
+        );
+
+    const nodes=new Set(
+
+        tiles.filter(
+
+            t=>t.type==='water'&&
+
+                !town.buildings[
+
+                    key(t.x,t.y)
+
+                ]?.bridge
+
+        ).map(
+
+            t=>key(t.x,t.y)
+        )
+    );
+
+    const shore=(k,b)=>
+
+        shoreSides(
+
+            ...xy(k),
+
+            b.w||1,
+
+            b.h||1
+
+        ).flatMap(s=>s.tiles);
+
+    for(
+
+        let i=0;
+
+        i<ports.length-1&&ferries.length<6;
+
+        i++
+    ){
+
+        const [k,b]=ports[i];
+
+        for(let j=i+1;j<ports.length;j++){
+
+            const [a,c]=ports[j];
+
+            const route=pathBetween(
+
+                nodes,
+
+                shore(k,b),
+
+                shore(a,c)
+            );
+
+            if(route.length>=2){
+
+                ferries.push(route);
+
+                break;
+            }
+        }
+    }
+};
+
+// ==========================================
+// 15 — MARITIME ECONOMY
+// ==========================================
+
+calculate=function(){
+
+    const r=prior.calculate();
+
+    const bonus=ferries.length*8;
+
+    const cruises=
+
+        Object.entries(town.buildings)
+
+        .filter(
+
+            ([k,b])=>
+
+                b.type==='v9_cruise'&&
+
+                roadAccess(k,b)&&
+
+                shoreSides(
+
+                    ...xy(k),
+
+                    b.w||1,
+
+                    b.h||1
+
+                ).length
+
+        ).length;
+
+    r.visitors+=bonus+cruises*12;
+
+    r.gross+=bonus+cruises*6;
+
+    r.net+=bonus+cruises*6;
+
+    return r;
+};
+
+// ==========================================
+// 16 — AUTOMATIC FISHING AND CARGO RETURNS
+// ==========================================
+
+tick=function(){
+
+    const due=
+
+        Object.values(state.sea)
+
+        .filter(
+
+            t=>t.type==='import'&&
+
+                t.end<=state.tick+1
+        );
+
+    prior.tick();
+
+    for(const t of due){
+
+        stock(t.goods,t.amount);
+
+        V.imports++;
+    }
+
+    V.passengers+=ferries.length*8;
+
+    for(const k of Object.keys(V.auto)){
+
+        const b=town.buildings[k];
+
+        if(
+
+            !b||
+
+            b.type!=='v6_fishingHarbour'
+        ){
+
+            delete V.auto[k];
+
+            continue;
+        }
+
+        if(
+
+            !state.sea[k]&&
+
+            town.cash>=15&&
+
+            (state.stock.fish||0)<980&&
+
+            findSeaRoute(k,b).length>=3
+        ){
+
+            dispatchFishing(k);
+        }
+    }
+
+    changed(
+
+        due.length
+
+            ?'Import cargo unloaded.'
+
+            :''
+    );
+};
+
+// ==========================================
+// 17 — ADDITIONAL ACHIEVEMENTS
+// ==========================================
+
+awards.push(
+
+    [
+
+        'v9importer',
+
+        'International importer',
+
+        ()=>V.imports>=5,
+
+        10
+    ],
+
+    [
+
+        'v9ferry',
+
+        'Passenger ferry service',
+
+        ()=>V.passengers>=100,
+
+        10
+    ]
+);
+
+// ==========================================
+// 18 — MOVING PASSENGER FERRIES
+// ==========================================
+
+render=function(){
+
+    prior.render();
+
+    if(
+
+        layer!=='surface'||
+
+        !ferries.length
+    )return;
+
+    ctx.save();
+
+    ctx.setTransform(
+
+        DPR,0,0,DPR,0,0
+    );
+
+    ctx.translate(camX,camY);
+
+    ctx.scale(zoom,zoom);
+
+    for(const [i,route] of ferries.entries()){
+
+        const n=route.length-1;
+
+        const p=
+
+            (
+
+                performance.now()/1300+i*2
+
+            )%(n*2);
+
+        const d=p<=n?p:2*n-p;
+
+        const j=Math.min(
+
+            n-1,
+
+            Math.floor(d)
+        );
+
+        const f=d-j;
+
+        const [x,y]=xy(route[j]);
+
+        const [u,v]=xy(route[j+1]);
+
+        const [a,b]=project(
+
+            x+(u-x)*f,
+
+            y+(v-y)*f
+        );
+
+        ctx.save();
+
+        ctx.translate(a,b);
+
+        ctx.rotate(
+
+            Math.atan2(
+
+                (u-x+v-y)*HH,
+
+                (u-x-v+y)*HW
+            )+
+
+            (p>n?Math.PI:0)
+        );
+
+        // Ferry hull.
+
+        poly([
+
+            [-15,-5],
+
+            [8,-5],
+
+            [17,0],
+
+            [8,5],
+
+            [-15,5]
+
+        ],'#467b9b');
+
+        // Passenger cabin.
+
+        ctx.fillStyle='#fff0d3';
+
+        ctx.fillRect(
+
+            -10,-10,19,10
+        );
+
+        ctx.fillStyle='#6ca7c0';
+
+        for(let z=0;z<4;z++){
+
+            ctx.fillRect(
+
+                -8+z*4,
+
+                -8,
+
+                3,4
+            );
+        }
+
+        ctx.restore();
+    }
+
+    ctx.restore();
+};
+
+// Request animation frames only when needed.
+
+setInterval(()=>{
+
+    if(
+
+        layer==='surface'&&
+
+        ferries.length
+    ){
+
+        dirty=true;
+    }
+
+},125);
+
+// ==========================================
+// 19 — COASTAL MANAGEMENT INTERFACE
+// ==========================================
+
+refreshPanel=function(){
+
+    prior.refreshPanel();
+
+    if(panel.hidden)return;
+
+    const box=el(
+
+        'div',
+
+        undefined
+    );
+
+    box.className='v8maritime';
+
+    el(
+
+        'h3',
+
+        'Coastal trade & transport',
+
+        box
+    );
+
+    row(
+
+        box,
+
+        'Operating ferry routes',
+
+        ferries.length
+    );
+
+    row(
+
+        box,
+
+        'Passenger journeys',
+
+        V.passengers
+    );
+
+    row(
+
+        box,
+
+        'Completed imports',
+
+        V.imports
+    );
+
+    const k=inspected;
+
+    const b=k&&town.buildings[k];
+
+    // Automatic fishing control.
+
+    if(b?.type==='v6_fishingHarbour'){
+
+        const label=el(
+
+            'label',
+
+            undefined,
+
+            box
+        );
+
+        const c=el(
+
+            'input',
+
+            undefined,
+
+            label
+        );
+
+        c.type='checkbox';
+
+        c.checked=!!V.auto[k];
+
+        label.append(
+
+            ' Automatic fishing expeditions'
+        );
+
+        c.onchange=()=>{
+
+            if(c.checked){
+
+                V.auto[k]=true;
+
+            }else{
+
+                delete V.auto[k];
+            }
+
+            save();
+        };
+    }
+
+    // Incoming cargo details.
+
+    if(state.sea[k]?.type==='import'){
+
+        const t=state.sea[k];
+
+        row(
+
+            box,
+
+            'Incoming cargo',
+
+            t.amount+' '+t.goods
+        );
+
+        for(const e of
+
+            panel.querySelectorAll('.v7row')
+        ){
+
+            if(
+
+                e.firstElementChild?.textContent===
+
+                'Expected catch'
+            ){
+
+                e.remove();
+            }
+        }
+    }
+
+    // Import goods from an overseas market.
+
+    if(
+
+        b?.type==='v8_shippingPort'&&
+
+        !state.sea[k]
+    ){
+
+        const s=el(
+
+            'select',
+
+            undefined,
+
+            box
+        );
+
+        for(const [name,price] of
+
+            Object.entries(imports)
+        ){
+
+            const o=el(
+
+                'option',
+
+                name+
+
+                ' • '+
+
+                money(price)+
+
+                '/unit',
+
+                s
+            );
+
+            o.value=name;
+        }
+
+        button(
+
+            'Import up to 10 units (+£15 freight)',
+
+            ()=>importGoods(k,s.value),
+
+            box
+        );
+    }
+
+    panel.firstElementChild.after(box);
+};
+
+// ==========================================
+// 20 — REFRESH THE CATALOGUE
+// ==========================================
+
+$('v5search').dispatchEvent(
+
+    new Event('input')
+);
+
+console.log(
+
+    'Town Builder V0.9: coastal systems and lit sprites ready'
+);
+
+})();
+
+/* END OF V0.9 — COASTAL WORLD */
+
    
 new MutationObserver(decorateCards)
 
