@@ -1,0 +1,154 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Town Builder Prototype</title>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+
+<style>
+body {
+    margin: 0;
+    background: #182b24;
+    overflow: hidden;
+}
+canvas {
+    display: block;
+    margin: auto;
+}
+</style>
+</head>
+<body>
+
+<script>
+
+let cash = 10000;
+let houses = new Set();
+let balance;
+
+function create() {
+
+    const scene = this;
+
+    const terrain = this.add.graphics();
+
+    function diamond(g, x, y, colour) {
+        g.fillStyle(colour);
+        g.beginPath();
+        g.moveTo(x, y - 16);
+        g.lineTo(x + 32, y);
+        g.lineTo(x, y + 16);
+        g.lineTo(x - 32, y);
+        g.closePath();
+        g.fillPath();
+        g.lineStyle(1, 0x548c38);
+        g.strokePath();
+    }
+
+    // Generate isometric terrain
+    for (let row = 0; row < 10; row++) {
+        for (let col = 0; col < 10; col++) {
+            let x = 400 + (col - row) * 32;
+            let y = 120 + (col + row) * 16;
+
+            diamond(terrain, x, y,
+                (row + col) % 2 === 0
+                ? 0x8fcf59 : 0x83c450);
+        }
+    }
+
+    balance = this.add.text(20, 20,
+        'Cash: £' + cash, {
+        fontSize: '24px',
+        color: '#ffffff'
+    }).setDepth(1000);
+
+    this.add.text(20, 55,
+        'Tap a tile to build a £250 house', {
+        fontSize: '16px',
+        color: '#ffffff'
+    }).setDepth(1000);
+
+    // Building placement
+    this.input.on('pointerdown', function(pointer) {
+
+        let dx = pointer.x - 400;
+        let dy = pointer.y - 120;
+
+        let col = Math.round((dx / 32 + dy / 16) / 2);
+        let row = Math.round((dy / 16 - dx / 32) / 2);
+
+        if (col < 0 || col >= 10 ||
+            row < 0 || row >= 10) return;
+
+        let key = col + ',' + row;
+
+        if (houses.has(key) || cash < 250) return;
+
+        houses.add(key);
+        cash -= 250;
+
+        let x = 400 + (col - row) * 32;
+        let y = 120 + (col + row) * 16;
+
+        let house = scene.add.graphics();
+        house.setDepth(row + col + 1);
+
+        // House walls
+        house.fillStyle(0xffe1b0);
+        house.fillRect(x - 19, y - 30, 38, 30);
+
+        // Shaded side wall
+        house.fillStyle(0xd0a779);
+        house.fillRect(x + 12, y - 30, 7, 30);
+
+        // Roof
+        house.fillStyle(0xb74732);
+        house.fillTriangle(
+            x - 25, y - 29,
+            x, y - 51,
+            x + 25, y - 29
+        );
+
+        // Door
+        house.fillStyle(0x78513a);
+        house.fillRect(x - 5, y - 15, 10, 15);
+
+        // Windows
+        house.fillStyle(0x83d8f5);
+        house.fillRect(x - 15, y - 24, 8, 9);
+        house.fillRect(x + 6, y - 24, 8, 9);
+
+        balance.setText('Cash: £' + cash);
+    });
+
+    // Automatic rental income
+    this.time.addEvent({
+        delay: 5000,
+        loop: true,
+        callback: function() {
+            cash += houses.size * 25;
+            balance.setText('Cash: £' + cash);
+        }
+    });
+}
+
+new Phaser.Game({
+    type: Phaser.AUTO,
+    width: 800,
+    height: 500,
+    backgroundColor: '#287b9e',
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+    scene: {
+        create: create
+    }
+});
+
+</script>
+</body>
+</html>
