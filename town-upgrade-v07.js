@@ -6703,6 +6703,2456 @@ css.textContent=`
 // 24 — ACTIVATE LIVING SOCIETY
 // =====================================================
 
+
+/* =====================================================
+   TOWN BUILDER V0.8
+   MARITIME & COASTAL DEVELOPMENT
+
+   INSERT INSIDE V0.7 BEFORE:
+   new MutationObserver(decorateCards)
+   ===================================================== */
+
+// =====================================================
+// 25 — MARITIME CATALOGUE
+// =====================================================
+
+TYPES.v8_shippingPort={
+
+    name:'Commercial shipping port',
+
+    cost:1200,
+    rent:65,
+    pop:0,
+
+    group:'Business',
+    section:'Waterfront'
+};
+
+sizes.v8_shippingPort=[3,2];
+
+sizes.fishingHarbour=[2,1];
+
+const seaPorts=new Set([
+
+    'v6_fishingHarbour',
+
+    'v8_shippingPort'
+]);
+
+const coastalTypes=new Set([
+
+    ...seaPorts,
+
+    'harbour',
+
+    'v6_marina',
+    'v6_ferry',
+    'v6_pier',
+
+    'v6_boatHire',
+    'v6_yachtClub',
+    'v6_beachClub',
+
+    'v6_lifeguard',
+    'v6_beachCafe',
+    'v6_boathouse',
+
+    'v6_lighthouse',
+    'v6_fishingHarbour'
+]);
+
+state.sea??={};
+
+state.seaStats??={
+
+    fishingTrips:0,
+    cargoTrips:0,
+    fishCaught:0
+};
+
+salePrices.fish=14;
+
+const seaDirections=[
+
+    [0,1],
+    [1,0],
+    [0,-1],
+    [-1,0]
+];
+
+const facingNames=[
+
+    'South-east',
+    'South-west',
+    'North-west',
+    'North-east'
+];
+
+let plannedFacing=null;
+
+let lastCoastalSelection=null;
+
+let lastSeaTick=performance.now();
+
+// =====================================================
+// 26 — COASTAL PLACEMENT RULES
+// =====================================================
+
+function navigableWater(x,y){
+
+    return (
+
+        inside(x,y)&&
+
+        terrain(x,y)==='water'
+    );
+}
+
+function shoreSides(x,y,w,h){
+
+    const result=[];
+
+    for(let d=0;d<4;d++){
+
+        const [dx,dy]=seaDirections[d];
+
+        const waterTiles=[];
+
+        for(const [a,b] of cells(x,y,w,h)){
+
+            const nx=a+dx;
+            const ny=b+dy;
+
+            if(
+
+                nx>=x&&nx<x+w&&
+
+                ny>=y&&ny<y+h
+
+            )continue;
+
+            if(navigableWater(nx,ny)){
+
+                waterTiles.push(
+                    key(nx,ny)
+                );
+            }
+        }
+
+        if(waterTiles.length){
+
+            result.push({
+
+                facing:d,
+
+                tiles:[
+                    ...new Set(waterTiles)
+                ]
+            });
+        }
+    }
+
+    return result;
+}
+
+const previousValid=valid;
+
+valid=function(
+
+    x,y,w,h,
+
+    ignore=null,
+
+    bridge=false
+){
+
+    const id=
+
+        ignore&&town.buildings[ignore]
+
+            ?town.buildings[ignore].type
+
+            :selected;
+
+    if(
+
+        bridge||
+
+        !coastalTypes.has(id)
+
+    ){
+
+        return previousValid(
+
+            x,y,w,h,
+
+            ignore,bridge
+        );
+    }
+
+    const available=cells(x,y,w,h)
+
+        .every(([a,b])=>{
+
+            if(!inside(a,b))return false;
+
+            if(!owned(a,b))return false;
+
+            const ground=terrain(a,b);
+
+            if(
+
+                ground!=='grass'&&
+
+                ground!=='sand'
+
+            )return false;
+
+            const occupant=
+
+                occupied.get(key(a,b));
+
+            return (
+
+                !occupant||
+
+                occupant===ignore
+            );
+        });
+
+    return (
+
+        available&&
+
+        shoreSides(x,y,w,h).length>0
+    );
+};
+
+// =====================================================
+// 27 — FOUR-DIRECTION MARITIME ROTATION
+// =====================================================
+
+function harbourFacing(k,b){
+
+    if(Number.isInteger(b.facing)){
+
+        return (
+
+            (b.facing%4)+4
+
+        )%4;
+    }
+
+    const sides=shoreSides(
+
+        ...xy(k),
+
+        b.w||1,
+
+        b.h||1
+    );
+
+    return sides[0]?.facing??0;
+}
+
+function alignHarbour(k,b,preferred=null){
+
+    const sides=shoreSides(
+
+        ...xy(k),
+
+        b.w||1,
+
+        b.h||1
+    );
+
+    const match=sides.find(
+
+        s=>s.facing===preferred
+    );
+
+    b.facing=
+
+        match?.facing??
+
+        sides[0]?.facing??
+
+        preferred??
+
+        0;
+
+    b.rot=b.facing%2;
+}
+
+const previousRotate=rotateBuilding;
+
+rotateBuilding=function(k){
+
+    const b=town.buildings[k];
+
+    if(!b)return;
+
+    if(!seaPorts.has(b.type)){
+
+        return previousRotate(k);
+    }
+
+    if(state.sea[k]){
+
+        message(
+
+            'Wait for the vessel to return before rotating this port.'
+        );
+
+        return;
+    }
+
+    const [x,y]=xy(k);
+
+    const next=
+
+        (harbourFacing(k,b)+1)%4;
+
+    const w=b.h||1;
+
+    const h=b.w||1;
+
+    if(!valid(x,y,w,h,k)){
+
+        message(
+
+            'Not enough coastal space to rotate this harbour.'
+        );
+
+        return;
+    }
+
+    b.w=w;
+
+    b.h=h;
+
+    b.facing=next;
+
+    b.rot=next%2;
+
+    changed(
+
+        'Harbour rotated • Quay faces '+
+
+        facingNames[next],
+
+        true
+    );
+};
+
+const seaRotateButton=[
+
+    ...$('v7tools').querySelectorAll('button')
+
+].find(
+
+    b=>b.textContent.includes('Rotate')
+);
+
+if(seaRotateButton){
+
+    seaRotateButton.onclick=()=>{
+
+        if(
+
+            mode==='build'&&
+
+            seaPorts.has(selected)
+
+        ){
+
+            plannedFacing=
+
+                ((plannedFacing??0)+1)%4;
+
+            rotation=plannedFacing%2;
+
+            selectMode('build');
+
+            dirty=true;
+
+            return;
+        }
+
+        if(
+
+            mode==='inspect'&&
+
+            inspected&&
+
+            town.buildings[inspected]
+
+        ){
+
+            rotateBuilding(inspected);
+
+            return;
+        }
+
+        rotation=1-rotation;
+
+        if(mode==='build'){
+
+            selectMode('build');
+        }
+
+        dirty=true;
+    };
+}
+
+// =====================================================
+// 28 — COASTAL CONSTRUCTION AND MANAGEMENT
+// =====================================================
+
+const previousSeaAct=act;
+
+act=function(x,y){
+
+    if(!inside(x,y))return;
+
+    if(layer!=='surface'){
+
+        return previousSeaAct(x,y);
+    }
+
+    const k=key(x,y);
+
+    const hit=recordAt(x,y);
+
+    // Protect ports while their boats are at sea.
+
+    if(
+
+        ['sell','bulldoze','move'].includes(mode)&&
+
+        hit&&
+
+        state.sea[hit.k]
+
+    ){
+
+        message(
+
+            'This port has a vessel at sea. Wait for it to return.'
+        );
+
+        return;
+    }
+
+    if(
+
+        moving&&
+
+        state.sea[moving]
+
+    ){
+
+        message(
+
+            'Cannot relocate a port while its vessel is away.'
+        );
+
+        return;
+    }
+
+    const before=town.buildings[k];
+
+    const movingFrom=moving;
+
+    const placing=
+
+        mode==='build'&&
+
+        coastalTypes.has(selected);
+
+    if(placing){
+
+        const [w,h]=dimensions(
+
+            selected,rotation
+        );
+
+        if(!valid(x,y,w,h)){
+
+            message(
+
+                'Choose clear, owned coastal grass or sand beside water. '+
+
+                'Required space: '+w+' × '+h+'.'
+            );
+
+            return;
+        }
+    }
+
+    previousSeaAct(x,y);
+
+    const after=town.buildings[k];
+
+    // Automatically face newly constructed quays
+    // towards an available water tile.
+
+    if(
+
+        placing&&
+
+        after&&
+
+        after!==before&&
+
+        seaPorts.has(after.type)
+
+    ){
+
+        alignHarbour(
+
+            k,after,plannedFacing
+        );
+
+        changed(
+
+            title(after.type)+
+
+            ' built • Quay faces '+
+
+            facingNames[after.facing],
+
+            true
+        );
+    }
+
+    // Realign a relocated harbour.
+
+    if(
+
+        movingFrom&&
+
+        !moving&&
+
+        after&&
+
+        after!==before&&
+
+        seaPorts.has(after.type)
+
+    ){
+
+        alignHarbour(
+
+            k,after,after.facing
+        );
+
+        changed(
+
+            'Harbour relocated.',
+
+            true
+        );
+    }
+};
+
+const previousSeaMode=selectMode;
+
+selectMode=function(m){
+
+    previousSeaMode(m);
+
+    if(
+
+        layer==='surface'&&
+
+        m==='build'&&
+
+        coastalTypes.has(selected)
+
+    ){
+
+        if(lastCoastalSelection!==selected){
+
+            plannedFacing=null;
+
+            lastCoastalSelection=selected;
+        }
+
+        const [w,h]=dimensions(
+
+            selected,rotation
+        );
+
+        message(
+
+            title(selected)+
+
+            ' • '+w+' × '+h+
+
+            ' • '+money(TYPES[selected].cost)+
+
+            ' • Coastal grass or sand'+
+
+            (
+
+                plannedFacing!==null&&
+
+                seaPorts.has(selected)
+
+                    ?' • Preferred quay: '+
+
+                        facingNames[plannedFacing]
+
+                    :''
+            )
+        );
+
+    }else if(m==='build'){
+
+        lastCoastalSelection=null;
+    }
+};
+
+// =====================================================
+// 29 — NAVIGABLE SEA ROUTES
+// =====================================================
+
+function findSeaRoute(k,b){
+
+    const sides=shoreSides(
+
+        ...xy(k),
+
+        b.w||1,
+
+        b.h||1
+    );
+
+    const facing=harbourFacing(k,b);
+
+    const side=sides.find(
+
+        s=>s.facing===facing
+    );
+
+    if(!side)return [];
+
+    let best=[];
+
+    for(const start of side.tiles){
+
+        const queue=[start];
+
+        const parent=new Map([
+
+            [start,null]
+        ]);
+
+        const depth=new Map([
+
+            [start,0]
+        ]);
+
+        let destination=start;
+
+        for(let i=0;i<queue.length;i++){
+
+            const current=queue[i];
+
+            const distance=depth.get(current);
+
+            if(
+
+                distance>
+
+                depth.get(destination)
+
+            ){
+
+                destination=current;
+            }
+
+            if(distance>=10)continue;
+
+            const [x,y]=xy(current);
+
+            for(const [a,c] of seaDirections){
+
+                const nx=x+a;
+
+                const ny=y+c;
+
+                const next=key(nx,ny);
+
+                if(
+
+                    navigableWater(nx,ny)&&
+
+                    !parent.has(next)
+
+                ){
+
+                    parent.set(next,current);
+
+                    depth.set(
+
+                        next,distance+1
+                    );
+
+                    queue.push(next);
+                }
+            }
+        }
+
+        const route=[];
+
+        let point=destination;
+
+        while(point!==null){
+
+            route.push(point);
+
+            point=parent.get(point);
+        }
+
+        route.reverse();
+
+        if(route.length>best.length){
+
+            best=route;
+        }
+    }
+
+    return best;
+}
+
+// =====================================================
+// 30 — FISHING EXPEDITIONS
+// =====================================================
+
+function dispatchFishing(k){
+
+    const b=town.buildings[k];
+
+    if(
+
+        !b||
+
+        b.type!=='v6_fishingHarbour'
+
+    )return;
+
+    if(state.sea[k]){
+
+        message(
+
+            'The fishing boat is already at sea.'
+        );
+
+        return;
+    }
+
+    const route=findSeaRoute(k,b);
+
+    if(route.length<3){
+
+        message(
+
+            'The quay needs access to open water. Rotate or relocate the harbour.'
+        );
+
+        return;
+    }
+
+    const fee=15;
+
+    if(town.cash<fee){
+
+        message(
+
+            'A fishing expedition costs £15.'
+        );
+
+        return;
+    }
+
+    town.cash-=fee;
+
+    state.sea[k]={
+
+        type:'fishing',
+
+        route,
+
+        start:state.tick,
+
+        end:state.tick+3,
+
+        catch:Math.min(
+
+            14,
+
+            4+route.length
+        )
+    };
+
+    changed(
+
+        'Fishing boat dispatched! Returns in three town cycles.'
+    );
+}
+
+// =====================================================
+// 31 — SHIPPING AND INTERNATIONAL EXPORTS
+// =====================================================
+
+function dispatchCargo(k,goods){
+
+    const b=town.buildings[k];
+
+    if(
+
+        !b||
+
+        b.type!=='v8_shippingPort'
+
+    )return;
+
+    if(state.sea[k]){
+
+        message(
+
+            'A cargo ship is already at sea.'
+        );
+
+        return;
+    }
+
+    const route=findSeaRoute(k,b);
+
+    if(route.length<3){
+
+        message(
+
+            'The shipping port needs a quay facing open water.'
+        );
+
+        return;
+    }
+
+    const amount=Math.min(
+
+        10,
+
+        state.stock[goods]||0
+    );
+
+    if(!amount){
+
+        message(
+
+            'There are no goods available to export.'
+        );
+
+        return;
+    }
+
+    const ordinaryValue=
+
+        amount*(salePrices[goods]||8);
+
+    const fee=Math.min(
+
+        20,
+
+        Math.ceil(ordinaryValue*.1)
+    );
+
+    if(town.cash<fee){
+
+        message(
+
+            'Not enough cash for shipping costs.'
+        );
+
+        return;
+    }
+
+    town.cash-=fee;
+
+    state.stock[goods]-=amount;
+
+    state.sea[k]={
+
+        type:'cargo',
+
+        goods,
+
+        amount,
+
+        payout:Math.floor(
+
+            ordinaryValue*1.2
+        ),
+
+        route,
+
+        start:state.tick,
+
+        end:state.tick+4
+    };
+
+    changed(
+
+        'Cargo ship dispatched with '+
+
+        amount+' '+goods+
+
+        ' • Shipping cost '+money(fee)
+    );
+}
+
+// =====================================================
+// 32 — VESSEL RETURNS AND MARITIME ECONOMY
+// =====================================================
+
+const previousSeaTick=tick;
+
+tick=function(){
+
+    lastSeaTick=performance.now();
+
+    previousSeaTick();
+
+    const returned=[];
+
+    for(const [k,trip] of Object.entries(
+
+        state.sea
+
+    )){
+
+        if(trip.end>state.tick)continue;
+
+        if(trip.type==='fishing'){
+
+            const previous=
+
+                state.stock.fish||0;
+
+            stock('fish',trip.catch);
+
+            const stored=
+
+                state.stock.fish-previous;
+
+            state.seaStats.fishingTrips++;
+
+            state.seaStats.fishCaught+=stored;
+
+            returned.push(
+
+                'Fishing boat returned with '+
+
+                stored+' fish'
+            );
+
+        }else if(trip.type==='cargo'){
+
+            town.cash+=trip.payout;
+
+            state.seaStats.cargoTrips++;
+
+            returned.push(
+
+                'Cargo shipment completed • '+
+
+                money(trip.payout)+' earned'
+            );
+        }
+
+        delete state.sea[k];
+    }
+
+    if(returned.length){
+
+        changed(
+
+            returned.join(' • ')
+        );
+    }
+};
+
+// =====================================================
+// 33 — MARITIME ACHIEVEMENTS
+// =====================================================
+
+awards.push(
+
+    [
+
+        'v8firstCatch',
+
+        'First catch',
+
+        ()=>state.seaStats.fishingTrips>=1,
+
+        5
+    ],
+
+    [
+
+        'v8masterFisher',
+
+        'Master fisherman',
+
+        ()=>state.seaStats.fishCaught>=100,
+
+        12
+    ],
+
+    [
+
+        'v8exporter',
+
+        'International trader',
+
+        ()=>state.seaStats.cargoTrips>=10,
+
+        15
+    ],
+
+    [
+
+        'v8maritimeTown',
+
+        'Maritime community',
+
+        ()=>
+
+            state.seaStats.fishingTrips>=10&&
+
+            state.seaStats.cargoTrips>=10,
+
+        20
+    ]
+);
+
+// =====================================================
+// 34 — DETAILED HARBOUR ARTWORK
+// =====================================================
+
+function paintHarbour(
+
+    g,cx,cy,w,h,facing,shipping
+
+){
+
+    const [dx,dy]=
+
+        seaDirections[facing%4];
+
+    const ux=dy;
+
+    const uy=-dx;
+
+    const width=dx?h:w;
+
+    const depth=dx?w:h;
+
+    const P=(u,v,z=0)=>project(
+
+        cx+u*ux+v*dx,
+
+        cy+u*uy+v*dy,
+
+        z
+    );
+
+    function shade(col,n){
+
+        return '#'+col.slice(1)
+
+            .match(/../g)
+
+            .map(a=>
+
+                clamp(
+
+                    parseInt(a,16)+n,
+
+                    0,255
+
+                ).toString(16).padStart(2,'0')
+
+            ).join('');
+    }
+
+    function shape(points,col,edge){
+
+        g.beginPath();
+
+        points.forEach((p,i)=>
+
+            i
+
+                ?g.lineTo(...p)
+
+                :g.moveTo(...p)
+        );
+
+        g.closePath();
+
+        g.fillStyle=col;
+
+        g.fill();
+
+        if(edge){
+
+            g.strokeStyle=edge;
+
+            g.lineWidth=.7;
+
+            g.stroke();
+        }
+    }
+
+    function ln(a,b,col,size=1){
+
+        g.beginPath();
+
+        g.moveTo(...a);
+
+        g.lineTo(...b);
+
+        g.strokeStyle=col;
+
+        g.lineWidth=size;
+
+        g.lineCap='round';
+
+        g.stroke();
+    }
+
+    function groundRect(a,b,c,d,col,z=0){
+
+        shape([
+
+            P(a,b,z),
+
+            P(c,b,z),
+
+            P(c,d,z),
+
+            P(a,d,z)
+
+        ],col);
+    }
+
+    function oval(x,y,rx,ry,col){
+
+        g.beginPath();
+
+        g.ellipse(
+
+            x,y,rx,ry,
+
+            0,0,Math.PI*2
+        );
+
+        g.fillStyle=col;
+
+        g.fill();
+    }
+
+    // World-aligned 3D boxes ensure the visible
+    // walls remain shaded correctly after rotation.
+
+    function block(a,b,c,d,z,H,col){
+
+        const points=[
+
+            [a,b],[c,b],[c,d],[a,d]
+
+        ].map(([u,v])=>[
+
+            cx+u*ux+v*dx,
+
+            cy+u*uy+v*dy
+        ]);
+
+        const xs=points.map(p=>p[0]);
+
+        const ys=points.map(p=>p[1]);
+
+        const x0=Math.min(...xs);
+
+        const x1=Math.max(...xs);
+
+        const y0=Math.min(...ys);
+
+        const y1=Math.max(...ys);
+
+        const Q=(x,y,Z)=>project(x,y,Z);
+
+        shape([
+
+            Q(x0,y1,z),
+
+            Q(x1,y1,z),
+
+            Q(x1,y1,z+H),
+
+            Q(x0,y1,z+H)
+
+        ],shade(col,-5),'#73594540');
+
+        shape([
+
+            Q(x1,y0,z),
+
+            Q(x1,y1,z),
+
+            Q(x1,y1,z+H),
+
+            Q(x1,y0,z+H)
+
+        ],shade(col,-33),'#73594540');
+
+        shape([
+
+            Q(x0,y0,z+H),
+
+            Q(x1,y0,z+H),
+
+            Q(x1,y1,z+H),
+
+            Q(x0,y1,z+H)
+
+        ],shade(col,22));
+    }
+
+    const a=-width/2+.04;
+
+    const b=-depth/2+.04;
+
+    const c=width/2-.04;
+
+    const d=depth/2-.04;
+
+    const quay=d-.28;
+
+    // Stone foundations.
+
+    groundRect(
+
+        a,b,c,d,
+
+        '#c9bda4'
+    );
+
+    // Wooden waterfront dock.
+
+    groundRect(
+
+        a,quay,c,d,
+
+        '#b58c5a',2
+    );
+
+    for(let u=a;u<c;u+=.13){
+
+        ln(
+
+            P(u,quay,2.2),
+
+            P(u,d,2.2),
+
+            '#8e704e',.8
+        );
+    }
+
+    // Dock edge.
+
+    ln(
+
+        P(a,d,2),
+
+        P(c,d,2),
+
+        '#715d49',2.6
+    );
+
+    // Stone paving.
+
+    for(let u=a+.2;u<c;u+=.24){
+
+        ln(
+
+            P(u,b,0),
+
+            P(u,quay,0),
+
+            '#aa9c8355',.65
+        );
+    }
+
+    // Mooring posts and rope details.
+
+    for(let u=a+.12;u<c;u+=.42){
+
+        block(
+
+            u-.035,d-.08,
+
+            u+.035,d-.01,
+
+            2,9,
+
+            '#866644'
+        );
+
+        const p=P(u,d-.04,11);
+
+        oval(
+
+            p[0],p[1],
+
+            2,1,
+
+            '#d7b27b'
+        );
+    }
+
+    // =================================================
+    // FISHING HARBOUR
+    // =================================================
+
+    if(!shipping){
+
+        const hutWidth=
+
+            Math.min(.65,width-.18);
+
+        const hutDepth=
+
+            Math.min(.36,depth-.38);
+
+        const hu=a+.1;
+
+        const hv=b+.08;
+
+        block(
+
+            hu,hv,
+
+            hu+hutWidth,
+
+            hv+hutDepth,
+
+            0,24,
+
+            '#e7d0a5'
+        );
+
+        // Raised roof and tiled detail.
+
+        block(
+
+            hu-.035,hv-.035,
+
+            hu+hutWidth+.035,
+
+            hv+hutDepth+.035,
+
+            24,5,
+
+            '#618b9d'
+        );
+
+        for(let u=hu;u<hu+hutWidth;u+=.09){
+
+            ln(
+
+                P(u,hv,29),
+
+                P(u,hv+hutDepth,29),
+
+                '#b0cad0',.8
+            );
+        }
+
+        // Fish crates.
+
+        for(let i=0;i<3;i++){
+
+            const u=
+
+                c-.13-i*.15;
+
+            block(
+
+                u-.055,quay-.19,
+
+                u+.055,quay-.06,
+
+                0,5,
+
+                '#b08b59'
+            );
+
+            const p=P(
+
+                u,quay-.12,5
+            );
+
+            oval(
+
+                p[0],p[1],
+
+                2.6,1.1,
+
+                '#91b5c6'
+            );
+        }
+
+        // Fishing nets.
+
+        const p=P(a+.15,quay+.06,3);
+
+        oval(
+
+            p[0],p[1],
+
+            7,4,
+
+            '#668b72'
+        );
+
+        for(let i=-4;i<=4;i+=2){
+
+            ln(
+
+                [p[0]+i,p[1]-3],
+
+                [p[0]+i+2,p[1]+3],
+
+                '#a8bda0',.65
+            );
+        }
+
+        // Harbour sign.
+
+        const s=P(
+
+            hu+hutWidth/2,
+
+            hv+hutDepth,
+
+            21
+        );
+
+        if(facing===0||facing===1){
+
+            g.fillStyle='#f3e2bd';
+
+            g.fillRect(
+
+                s[0]-12,s[1]-3,
+
+                24,6
+            );
+
+            g.font='bold 4.5px sans-serif';
+
+            g.textAlign='center';
+
+            g.fillStyle='#4d6570';
+
+            g.fillText(
+
+                'FISHING',
+
+                s[0],s[1]+1.5
+            );
+        }
+
+    // =================================================
+    // COMMERCIAL SHIPPING PORT
+    // =================================================
+
+    }else{
+
+        const warehouseDepth=
+
+            Math.max(.35,depth-.75);
+
+        const warehouseWidth=
+
+            (width-.38)/2;
+
+        for(let i=0;i<2;i++){
+
+            const u=
+
+                a+.08+i*(warehouseWidth+.12);
+
+            const v=b+.08;
+
+            block(
+
+                u,v,
+
+                u+warehouseWidth,
+
+                v+warehouseDepth,
+
+                0,29,
+
+                '#d7d5c1'
+            );
+
+            block(
+
+                u-.025,v-.025,
+
+                u+warehouseWidth+.025,
+
+                v+warehouseDepth+.025,
+
+                29,5,
+
+                '#748e9f'
+            );
+
+            for(
+
+                let q=u;
+
+                q<u+warehouseWidth;
+
+                q+=.12
+
+            ){
+
+                ln(
+
+                    P(q,v,34),
+
+                    P(q,v+warehouseDepth,34),
+
+                    '#aebec4',.8
+                );
+            }
+        }
+
+        // Colourful shipping containers.
+
+        const colours=[
+
+            '#c86c58',
+
+            '#648fae',
+
+            '#dfb85f',
+
+            '#729f83'
+        ];
+
+        for(let i=0;i<6;i++){
+
+            const u=
+
+                a+.20+(i%3)*.26;
+
+            const v=
+
+                quay-.30+
+
+                Math.floor(i/3)*.16;
+
+            block(
+
+                u,v,
+
+                u+.20,v+.13,
+
+                0,8,
+
+                colours[i%4]
+            );
+
+            for(let j=0;j<4;j++){
+
+                ln(
+
+                    P(u+.03+j*.04,v+.13,1),
+
+                    P(u+.03+j*.04,v+.13,7),
+
+                    '#ffffff55',.6
+                );
+            }
+        }
+
+        // Harbour crane.
+
+        const craneX=c-.22;
+
+        const craneY=quay-.08;
+
+        block(
+
+            craneX-.09,craneY-.09,
+
+            craneX+.09,craneY+.09,
+
+            0,5,
+
+            '#9b9380'
+        );
+
+        for(const offset of [-.07,.07]){
+
+            ln(
+
+                P(craneX+offset,craneY,5),
+
+                P(craneX+offset,craneY,58),
+
+                '#d4a245',3.6
+            );
+        }
+
+        for(let z=8;z<55;z+=8){
+
+            ln(
+
+                P(craneX-.07,craneY,z),
+
+                P(craneX+.07,craneY,z+7),
+
+                '#a37c38',1.4
+            );
+        }
+
+        ln(
+
+            P(craneX,craneY,58),
+
+            P(craneX,craneY+.62,48),
+
+            '#e0b351',4
+        );
+
+        ln(
+
+            P(craneX,craneY+.62,48),
+
+            P(craneX,craneY+.62,13),
+
+            '#626765',.9
+        );
+
+        block(
+
+            craneX-.065,
+
+            craneY+.55,
+
+            craneX+.065,
+
+            craneY+.67,
+
+            10,4,
+
+            '#9c8059'
+        );
+    }
+}
+
+// =====================================================
+// 35 — INTEGRATE ROTATABLE HARBOUR GRAPHICS
+// =====================================================
+
+const previousHarbourDraw=drawObject;
+
+drawObject=function(t){
+
+    const anchor=
+
+        occupied.get(key(t.x,t.y));
+
+    const b=
+
+        anchor&&town.buildings[anchor];
+
+    if(!b||!seaPorts.has(b.type)){
+
+        return previousHarbourDraw(t);
+    }
+
+    const [x,y]=xy(anchor);
+
+    const w=b.w||1;
+
+    const h=b.h||1;
+
+    if(
+
+        t.x!==x+w-1||
+
+        t.y!==y+h-1
+
+    )return;
+
+    ctx.save();
+
+    if(moving===anchor){
+
+        ctx.globalAlpha=.45;
+    }
+
+    paintHarbour(
+
+        ctx,
+
+        x+(w-1)/2,
+
+        y+(h-1)/2,
+
+        w,h,
+
+        harbourFacing(anchor,b),
+
+        b.type==='v8_shippingPort'
+    );
+
+    ctx.restore();
+};
+
+// =====================================================
+// 36 — ANIMATED FISHING AND CARGO VESSELS
+// =====================================================
+
+function drawSeaVessel(trip){
+
+    const route=trip.route;
+
+    if(!route||route.length<2)return;
+
+    const fraction=clamp(
+
+        (performance.now()-lastSeaTick)/10000,
+
+        0,.99
+    );
+
+    const progress=clamp(
+
+        (
+
+            state.tick-trip.start+fraction
+
+        )/(trip.end-trip.start),
+
+        0,1
+    );
+
+    const length=route.length-1;
+
+    // Travel out and return along the same route.
+
+    const journey=progress*2;
+
+    const returning=journey>1;
+
+    const distance=
+
+        (
+
+            returning
+
+                ?2-journey
+
+                :journey
+
+        )*length;
+
+    const i=Math.min(
+
+        length-1,
+
+        Math.floor(distance)
+    );
+
+    const f=distance-i;
+
+    const [x,y]=xy(route[i]);
+
+    const [u,v]=xy(route[i+1]);
+
+    const a=x+(u-x)*f;
+
+    const b=y+(v-y)*f;
+
+    const [sx,sy]=project(a,b);
+
+    const direction=
+
+        returning?-1:1;
+
+    const angle=Math.atan2(
+
+        (u-x+v-y)*HH*direction,
+
+        (u-x-v+y)*HW*direction
+    );
+
+    const cargo=trip.type==='cargo';
+
+    const size=cargo?1.7:1;
+
+    ctx.save();
+
+    ctx.translate(sx,sy);
+
+    ctx.rotate(angle);
+
+    ctx.scale(size,size);
+
+    // Animated water wake.
+
+    for(let j=0;j<3;j++){
+
+        const wave=
+
+            Math.sin(
+
+                performance.now()/180+j
+
+            )*1.4;
+
+        line(
+
+            [-12-j*5,-3-wave],
+
+            [-16-j*5,0],
+
+            '#d4f5edaa',1
+        );
+
+        line(
+
+            [-12-j*5,3+wave],
+
+            [-16-j*5,0],
+
+            '#d4f5edaa',1
+        );
+    }
+
+    // Hull shadow.
+
+    disc(
+
+        0,2,14,5,
+
+        '#225b7140'
+    );
+
+    // Main vessel hull.
+
+    poly([
+
+        [-14,-5],
+
+        [8,-5],
+
+        [17,0],
+
+        [8,6],
+
+        [-14,5]
+
+    ],cargo?'#456b83':'#b7644c');
+
+    // Deck.
+
+    poly([
+
+        [-12,-3],
+
+        [7,-3],
+
+        [13,0],
+
+        [7,3],
+
+        [-12,3]
+
+    ],'#e0c69c');
+
+    // Cabin.
+
+    ctx.fillStyle='#f4ead2';
+
+    ctx.fillRect(-7,-7,10,7);
+
+    ctx.fillStyle='#6b9eb4';
+
+    ctx.fillRect(-6,-6,8,3);
+
+    ctx.fillStyle='#f2dfb2';
+
+    ctx.fillRect(-8,-8,12,2);
+
+    if(cargo){
+
+        // Shipping containers.
+
+        for(let j=0;j<3;j++){
+
+            ctx.fillStyle=[
+
+                '#cc795c',
+
+                '#dcb760',
+
+                '#6fa58c'
+
+            ][j];
+
+            ctx.fillRect(
+
+                4+j*2,-4,3,7
+            );
+        }
+
+    }else{
+
+        // Fishing equipment and nets.
+
+        ctx.fillStyle='#6d927e';
+
+        ctx.fillRect(5,-3,5,5);
+
+        line(
+
+            [-2,-8],
+
+            [-2,-17],
+
+            '#84745e',1.5
+        );
+
+        line(
+
+            [-2,-17],
+
+            [9,-8],
+
+            '#f3e1b7',.8
+        );
+
+        disc(
+
+            8,1,3,2,
+
+            '#91b5c6'
+        );
+    }
+
+    ctx.restore();
+}
+
+const previousSeaRender=render;
+
+render=function(){
+
+    previousSeaRender();
+
+    if(layer!=='surface')return;
+
+    ctx.save();
+
+    ctx.setTransform(
+
+        DPR,0,0,DPR,0,0
+    );
+
+    ctx.translate(camX,camY);
+
+    ctx.scale(zoom,zoom);
+
+    for(const trip of Object.values(
+
+        state.sea
+
+    )){
+
+        drawSeaVessel(trip);
+    }
+
+    ctx.restore();
+};
+
+// Animate only when vessels are active.
+
+setInterval(()=>{
+
+    if(
+
+        layer==='surface'&&
+
+        Object.keys(state.sea).length
+
+    ){
+
+        dirty=true;
+    }
+
+},90);
+
+// =====================================================
+// 37 — HARBOUR MANAGEMENT CONTROLS
+// =====================================================
+
+const previousSeaPanel=refreshPanel;
+
+refreshPanel=function(){
+
+    previousSeaPanel();
+
+    if(panel.hidden||!inspected)return;
+
+    const k=inspected;
+
+    const b=town.buildings[k];
+
+    if(!b||!seaPorts.has(b.type))return;
+
+    const section=el(
+
+        'div',
+
+        undefined
+    );
+
+    section.className='v8maritime';
+
+    const shipping=
+
+        b.type==='v8_shippingPort';
+
+    el(
+
+        'h3',
+
+        shipping
+
+            ?'Shipping port management'
+
+            :'Fishing harbour management',
+
+        section
+    );
+
+    row(
+
+        section,
+
+        'Quay direction',
+
+        facingNames[harbourFacing(k,b)]
+    );
+
+    const route=findSeaRoute(k,b);
+
+    row(
+
+        section,
+
+        'Open water access',
+
+        route.length>=3
+
+            ?'Connected'
+
+            :'Rotate or relocate'
+    );
+
+    const trip=state.sea[k];
+
+    if(trip){
+
+        row(
+
+            section,
+
+            'Vessel status',
+
+            'At sea'
+        );
+
+        row(
+
+            section,
+
+            'Returning in',
+
+            Math.max(
+
+                0,trip.end-state.tick
+
+            )+' cycles'
+        );
+
+        if(trip.type==='cargo'){
+
+            row(
+
+                section,
+
+                'Cargo',
+
+                trip.amount+' '+trip.goods
+            );
+
+            row(
+
+                section,
+
+                'Expected payment',
+
+                money(trip.payout)
+            );
+
+        }else{
+
+            row(
+
+                section,
+
+                'Expected catch',
+
+                trip.catch+' fish'
+            );
+        }
+
+    }else if(shipping){
+
+        const goods=Object.entries(
+
+            state.stock
+
+        ).filter(
+
+            ([,quantity])=>quantity>0
+        );
+
+        row(
+
+            section,
+
+            'Cargo vessel',
+
+            'Docked'
+        );
+
+        if(goods.length){
+
+            const choices=el(
+
+                'select',
+
+                undefined,
+
+                section
+            );
+
+            for(const [name,amount] of goods){
+
+                const o=el(
+
+                    'option',
+
+                    name+' × '+amount,
+
+                    choices
+                );
+
+                o.value=name;
+            }
+
+            button(
+
+                'Export up to 10 goods',
+
+                ()=>dispatchCargo(
+
+                    k,choices.value
+                ),
+
+                section
+            );
+
+            el(
+
+                'p',
+
+                'Sea exports pay a 20% bonus before shipping costs. '+
+
+                'The voyage takes four town cycles.',
+
+                section
+            );
+
+        }else{
+
+            el(
+
+                'p',
+
+                'Your warehouse is empty. Harvest crops, catch fish or manufacture products to export.',
+
+                section
+            );
+        }
+
+    }else{
+
+        row(
+
+            section,
+
+            'Fishing boat',
+
+            'Docked'
+        );
+
+        button(
+
+            'Send fishing boat (£15)',
+
+            ()=>dispatchFishing(k),
+
+            section
+        );
+
+        el(
+
+            'p',
+
+            'The boat returns after three town cycles. Your catch is automatically stored in the warehouse.',
+
+            section
+        );
+    }
+
+    row(
+
+        section,
+
+        'Fish in warehouse',
+
+        state.stock.fish||0
+    );
+
+    row(
+
+        section,
+
+        'Completed fishing trips',
+
+        state.seaStats.fishingTrips
+    );
+
+    row(
+
+        section,
+
+        'Completed cargo trips',
+
+        state.seaStats.cargoTrips
+    );
+
+    panel.firstElementChild.after(
+
+        section
+    );
+};
+
+// =====================================================
+// 38 — ILLUSTRATED MARITIME CATALOGUE
+// =====================================================
+
+const previousSeaCards=decorateCards;
+
+decorateCards=function(){
+
+    previousSeaCards();
+
+    for(const card of
+
+        $('catalogue').querySelectorAll('[data-type]')
+
+    ){
+
+        const id=card.dataset.type;
+
+        if(!seaPorts.has(id))continue;
+
+        const c=card.querySelector('canvas');
+
+        if(!c)continue;
+
+        const g=c.getContext('2d');
+
+        const [w,h]=dimensions(id);
+
+        g.clearRect(
+
+            0,0,c.width,c.height
+        );
+
+        const scale=Math.min(
+
+            (c.width-10)/((w+h)*HW+20),
+
+            (c.height-10)/((w+h)*HH+65)
+        );
+
+        g.save();
+
+        g.translate(
+
+            c.width/2,
+
+            c.height/2+18*scale
+        );
+
+        g.scale(scale,scale);
+
+        paintHarbour(
+
+            g,
+
+            0,0,
+
+            w,h,
+
+            0,
+
+            id==='v8_shippingPort'
+        );
+
+        g.restore();
+
+        card.title=
+
+            title(id)+
+
+            ' • Coastal grass or sand'+
+
+            ' • '+w+' × '+h+
+
+            ' tiles'+
+
+            ' • Four quay orientations';
+    }
+};
+
+// =====================================================
+// 39 — MARITIME INTERFACE STYLING
+// =====================================================
+
+const maritimeCSS=el(
+
+    'style',
+
+    undefined,
+
+    document.head
+);
+
+maritimeCSS.textContent=`
+
+.v8maritime{
+
+    background:
+        linear-gradient(
+            #e5f0df,
+            #d7e9e1
+        );
+
+    border:1px solid #a0b7a6;
+
+    border-radius:10px;
+
+    padding:9px;
+
+    margin:8px 0;
+
+    color:#3e6057;
+}
+
+#v7panel .v8maritime h3{
+
+    margin-top:0;
+
+    color:#3e6057;
+
+    border-color:#b1c7b5;
+}
+
+#v7panel .v8maritime button{
+
+    background:#79a9b4;
+
+    border:1px solid #628e98;
+
+    color:#fffaf0;
+
+    font-weight:750;
+
+    padding:8px 10px;
+}
+
+#v7panel .v8maritime select{
+
+    max-width:100%;
+
+    background:#f7f5e9;
+
+    margin:5px 0;
+
+    border-color:#a0b7a6;
+}
+
+#v7panel .v8maritime p{
+
+    color:#557369;
+}
+
+`;
+
+// Refresh the existing V0.6 catalogue.
+
+$('v5search').dispatchEvent(
+
+    new Event('input')
+);
+
+console.log(
+
+    'Town Builder V0.8 Maritime Systems loaded'
+);
+
+/* END OF V0.8 MARITIME EXPANSION */
+
+   
 new MutationObserver(decorateCards)
 
     .observe(
