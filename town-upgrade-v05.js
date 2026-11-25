@@ -3057,6 +3057,10 @@ function drawAgent(a){
         !metroVisible
     )return;
 
+   if(window.townArtAgent?.(a,agentPos(a))){
+    return;
+}
+
     const [x,y,dx,dy]=agentPos(a);
 
     const [sx,sy]=project(x,y);
