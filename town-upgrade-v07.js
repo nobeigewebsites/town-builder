@@ -11625,6 +11625,10 @@ render=function(){
             (p>n?Math.PI:0)
         );
 
+       if(window.townArtFerry?.(u-x,v-y,p>n)){
+    ctx.restore();
+    continue;
+}
         // Ferry hull.
 
         poly([
@@ -13369,6 +13373,2449 @@ console.log(
 );
 
 })();
+
+ 
+/* =====================================================
+   V0.11 — THE ILLUSTRATED WORLD
+   Complete artwork collection and live sprite renderer
+   ===================================================== */
+
+(()=>{
+'use strict';
+
+if(window.townArtworkV11)return;
+window.townArtworkV11=true;
+
+const previous={
+    drawObject,
+    drawTile,
+    ground,
+    decorateCards,
+    drawVehicle,
+    drawSeaVessel
+};
+
+const packs=new Map();
+const mappings=new Map();
+const groundCache=new Map();
+const seenCards=new WeakSet();
+const agentArt=new WeakMap();
+
+let loaded=0;
+let failed=0;
+let nextAgent=0;
+
+// =====================================================
+// 01 — ADD EXTRA LANDSCAPING AND INFRASTRUCTURE DETAILS
+// =====================================================
+
+const extras=[
+
+    ['v11_signal','Railway signal (decorative)',35,'Transport'],
+    ['v11_semaphore','Historic semaphore signal',35,'Transport'],
+    ['v11_platform','Railway platform (decorative)',75,'Transport'],
+    ['v11_signalbox','Railway signal box',120,'Transport'],
+    ['v11_pylon','Electricity pylon (decorative)',80,'Utilities'],
+    ['v11_watchtower','Military watchtower',100,'Decoration'],
+    ['v11_barracks','Military barracks (decorative)',350,'Decoration'],
+    ['v11_militaryTent','Military field tent',70,'Decoration'],
+    ['v11_sandbags','Sandbag wall',15,'Fences'],
+    ['v11_securityFence','Security fence',25,'Fences'],
+    ['v11_christmasTree','Decorated Christmas tree',60,'Decoration'],
+    ['v11_snowman','Snowman',15,'Decoration'],
+    ['v11_reindeer','Festive illuminated reindeer',45,'Decoration'],
+    ['v11_pumpkins','Halloween pumpkins',20,'Decoration'],
+    ['v11_maypole','Traditional maypole',45,'Decoration'],
+    ['v11_easterEgg','Decorative Easter egg',25,'Decoration'],
+    ['v11_harvestDisplay','Autumn harvest display',45,'Decoration'],
+    ['v11_winterMarket','Festive market stall',85,'Decoration'],
+    ['v11_woodBridge','Decorative wooden garden bridge',75,'Decoration'],
+    ['v11_coveredBridge','Decorative covered bridge',120,'Decoration'],
+    ['v11_railBridge','Decorative railway viaduct',150,'Decoration'],
+    ['v11_suspensionBridge','Decorative suspension bridge',180,'Decoration'],
+    ['v11_pavement','Decorative pavement',10,'Decoration'],
+    ['v11_trafficIsland','Decorative traffic island',25,'Decoration'],
+    ['v11_roadworks','Roadworks display',30,'Decoration'],
+    ['v11_hill','Landscaped grassy hill',65,'Nature'],
+    ['v11_cliff','Rocky cliff scenery',75,'Nature'],
+    ['v11_snowTile','Snow-covered landscape',25,'Nature'],
+    ['v11_controlTower','Airport control tower (decorative)',180,'Transport']
+
+];
+
+for(const [id,name,cost,section] of extras){
+
+    if(!TYPES[id]){
+
+        TYPES[id]={
+            name,
+            cost,
+            rent:0,
+            pop:0,
+            group:'Nature',
+            section,
+            icon:'🌿'
+        };
+    }
+}
+
+// =====================================================
+// 02 — REGISTER ALL 25 ARTWORK COLLECTIONS
+//
+// Entries are arranged left to right, top to bottom.
+// Each row contains four sprites.
+//
+// Multiple IDs separated by | share related artwork.
+// @ identifies a sprite reserved for future use.
+// =====================================================
+
+const collection={
+
+    'town-buildings':[
+
+        'cottage|v6_thatched',
+        'tudor',
+        'villa',
+        'victorian',
+
+        'modern',
+        'alpine',
+        'georgian',
+        'apartments',
+
+        'bakery',
+        'florist',
+        'cafe',
+        'greengrocer',
+
+        'townhall',
+        'nationalLibrary',
+        'windmill',
+        'v6_fishingHarbour'
+    ],
+
+    housing:[
+
+        'bungalow|v6_countryside',
+        'stonehouse|v6_farmcottage',
+        'terrace|v6_terraced',
+        'manor',
+
+        'coastal',
+        'v6_edwardian',
+        'v6_artdeco',
+        'v6_italian',
+
+        'v6_tuscan',
+        'v6_french',
+        'v6_dutch',
+        'v6_greek',
+
+        'v6_japanese',
+        'v6_scandi',
+        'v6_logcabin|v6_canadian',
+        'v6_mansion'
+    ],
+
+    shops:[
+
+        'butcher|shop',
+        'v9_fishmonger|v6_fishMarket|v6_fishchips',
+        'pharmacy',
+        'bookshop|v6_bookstall',
+
+        'v6_toys',
+        'v6_antiques',
+        'v6_giftshop',
+        'clothes|v6_tailor',
+
+        'v6_electronics',
+        'supermarket|v6_superstore',
+        'restaurant|v6_steakhouse',
+        'pub',
+
+        'v6_tearoom|v6_coffee',
+        'v6_pizza',
+        'v6_sweetshop|v6_patisserie',
+        'icecream'
+    ],
+
+    civic:[
+
+        'school|nursery',
+        'council|community',
+        'courthouse|registry',
+        'hospital|v6_maternity',
+
+        'clinic|v6_healthCentre',
+        'v6_dentist',
+        'police|v6_policeHQ',
+        'secondary',
+
+        'fire|v6_fireHQ',
+        'postoffice',
+        'museum',
+        'library',
+
+        'theatre',
+        'v6_opera',
+        'university|college',
+        'prison'
+    ],
+
+    funfair:[
+
+        'wheel',
+        'carousel',
+        'v6_circus',
+        'v6_rollercoaster|v6_miniCoaster',
+
+        'v6_dodgems',
+        'v6_helter',
+        'v6_ghostTrain',
+        'v6_funhouse',
+
+        'v6_swingRide',
+        'v6_dropTower',
+        'v6_teaCups',
+        'v6_fairStall',
+
+        'v6_waterSlide',
+        'v6_miniTrain',
+        'v6_candyFloss',
+        'v6_arcade'
+    ],
+
+    wildlife:[
+
+        'v6_zoo',
+        'v6_safari',
+        'v6_lion',
+        'v6_elephant',
+
+        'v6_giraffe',
+        'v6_panda',
+        'v6_monkey',
+        'v6_penguin',
+
+        'v6_reptile',
+        'v6_butterfly',
+        'v6_aviary',
+        'v6_birdSanctuary',
+
+        'v6_rescueAnimals|v6_wildlifeCentre',
+        'v6_pettingZoo',
+        'v6_deerPark',
+        'aquarium'
+    ],
+
+    transport:[
+
+        'station',
+        'v6_touristRail',
+        '@Historic tram',
+        'busdepot',
+
+        'airport',
+        'v11_controlTower',
+        'v6_heliport',
+        'hangar|v6_freight',
+
+        'v6_ferry',
+        'v6_marina|v6_boatHire|v6_yachtClub',
+        'v8_shippingPort|harbour',
+        'v9_cruise',
+
+        'v6_lighthouse',
+        'v6_taxiOffice',
+        'v6_multistorey',
+        'v6_fuel'
+    ],
+
+    industry:[
+
+        'factory',
+        'sawmill',
+        'flourmill',
+        'dairy|v6_cheeseFactory',
+
+        'workshop',
+        'v6_pottery',
+        'brewery',
+        'warehouse|v9_coldStore',
+
+        'coal',
+        'solar',
+        'wind',
+        'waterTower',
+
+        'sewage',
+        'recycling',
+        'landfill',
+        'v6_gasPlant'
+    ],
+
+    agriculture:[
+
+        'farm|v6_wheat',
+        'v6_corn',
+        'v6_lavender',
+        'v6_sunflowers',
+
+        'v6_pumpkins',
+        'v6_strawberry',
+        'v6_olive',
+        'vineyard',
+
+        'orchard|v6_cherryOrchard',
+        'greenhouse',
+        'barn',
+        'farmhouse',
+
+        'cow',
+        'chicken',
+        'v6_pigFarm',
+        'v6_beehives'
+    ],
+
+    nature:[
+
+        'oak',
+        'pine|v6_redwood',
+        'cherry',
+        'autumn',
+
+        'palm',
+        'v6_weepingWillow',
+        'v6_birch',
+        'v6_magnolia',
+
+        'flowers|roseGarden',
+        'v6_japaneseGarden',
+        'fountain|v6_fountainLarge',
+        'pond|v6_lilyPond|v6_koiPond',
+
+        'v6_waterfall',
+        'v6_maze',
+        'v6_woodland',
+        'v6_wildFlowers'
+    ],
+
+    decoration:[
+
+        'woodFence|v6_ranchFence',
+        'whiteFence',
+        'v6_brickWall',
+        'stoneWall|v6_gardenWall',
+
+        'ironFence|v6_ornateFence',
+        'hedge|v6_tallHedge',
+        'bench',
+        'lamp',
+
+        'v6_wishingWell',
+        'v6_pergola',
+        'gazebo',
+        'v6_picnic',
+
+        'v6_phoneBox',
+        'v6_postBox',
+        'v6_flowerArch',
+        'v6_streetClock'
+    ],
+
+    landmarks:[
+
+        'castle',
+        'cathedral',
+        'v6_palace|v7_heritagePalace',
+        'v6_abbey',
+
+        'v6_romanVilla',
+        '@Ancient classical temple ruins',
+        'v6_amphitheatre',
+        'v6_archaeology',
+
+        'observatory|v6_planetarium',
+        'clocktower',
+        'v6_mosque',
+        'church|chapel',
+
+        'v6_buddhistTemple',
+        'v6_shrine',
+        'artgallery',
+        'temple'
+    ],
+
+    vehicles:[
+
+        '@Red car',
+        '@Blue car',
+        '@Taxi',
+        '@Delivery van',
+
+        '@Public bus',
+        '@Tram',
+        '@Ambulance',
+        '@Fire engine',
+
+        '@Police vehicle',
+        '@Waste collection lorry',
+        '@Farm tractor',
+        '@Passenger train',
+
+        '@Freight train',
+        '@Fishing boat',
+        '@Cargo ship',
+        '@Pedestrian'
+    ],
+
+    people:[
+
+        '@Adult woman',
+        '@Adult man',
+        '@Schoolboy',
+        '@Young girl',
+
+        '@Elderly woman',
+        '@Elderly man',
+        '@Wheelchair user',
+        '@Wheelchair user',
+
+        '@Tourist couple',
+        '@Shopper',
+        '@Office worker',
+        '@Commuter',
+
+        '@Teenager',
+        '@Young adult',
+        '@Gardener',
+        '@Child'
+    ],
+
+    workers:[
+
+        '@Farmer',
+        '@Carpenter',
+        '@Fisherman',
+        '@Police officer',
+
+        '@Firefighter',
+        '@Doctor',
+        '@Gardener',
+        '@Delivery worker',
+
+        '@Mechanic',
+        '@Teacher',
+        '@Chef',
+        '@Shopkeeper',
+
+        '@Railway conductor',
+        '@Sea captain',
+        '@Waste collection worker',
+        '@Surveyor'
+    ],
+
+    aircraft:[
+
+        '@Passenger aircraft',
+        '@Cargo aircraft',
+        '@Private jet',
+        '@Light aircraft',
+
+        '@Helicopter',
+        '@Seaplane',
+        '@Glider',
+        '@Hot air balloon',
+
+        '@Airport shuttle',
+        '@Aircraft hangar',
+        '@Radar vehicle',
+        '@Baggage transport',
+
+        '@Fuel tanker',
+        '@Airport service vehicle',
+        '@Rescue helicopter',
+        '@Business jet'
+    ],
+
+    boats:[
+
+        '@Historic schooner',
+        '@Sailing boat',
+        '@Luxury yacht',
+        '@Speedboat',
+
+        '@Passenger ferry',
+        '@Cruise ship',
+        '@Fishing trawler',
+        '@Commercial fishing boat',
+
+        '@Container ship',
+        '@Vehicle ferry',
+        '@Canal narrowboat',
+        '@Cabin cruiser',
+
+        '@Harbour tug',
+        '@Rescue vessel',
+        '@Catamaran',
+        '@Traditional workboat'
+    ],
+
+    roads:[
+
+        '@Isolated road tile',
+        'road|lane',
+        '@Road bend',
+        '@T junction',
+
+        '@Crossroads',
+        '@Roundabout',
+        '@Pedestrian crossing',
+        'cycle',
+
+        'v11_pavement|path',
+        'v11_trafficIsland',
+        'v11_roadworks',
+        'busstop',
+
+        'carpark|taxi',
+        'cobble',
+        'v6_stoneBridge',
+        'avenue'
+    ],
+
+    railways:[
+
+        'rail',
+        '@Curved railway',
+        '@Railway junction',
+        'v11_signal',
+
+        'v11_semaphore',
+        '@Covered platform',
+        'v11_platform',
+        'tramTrack',
+
+        'tramstop',
+        '@Level crossing',
+        '@Crossing barriers',
+        '@Railway buffer',
+
+        '@Overhead electrification',
+        '@Railway points',
+        '@Railway bridge',
+        'v11_signalbox'
+    ],
+
+    terrain:[
+
+        '@Grassland',
+        '@Flower meadow',
+        '@Dry grass',
+        '@Beach sand',
+
+        '@Shallow water',
+        '@Deep water',
+        '@Straight shoreline',
+        '@Curved shoreline',
+
+        'v11_cliff',
+        '@Cliff corner',
+        'rock',
+        'v11_hill',
+
+        '@Earth',
+        '@Stone paving',
+        'v11_snowTile',
+        '@Rocky coast'
+    ],
+
+    bridges:[
+
+        '@Working stone road bridge',
+        'v11_railBridge',
+        'v11_woodBridge',
+        'v11_coveredBridge',
+
+        '@Steel railway bridge',
+        'v11_suspensionBridge',
+        '@Modern arched bridge',
+        '@Cable bridge',
+
+        '@Brick railway bridge',
+        '@Brick road bridge',
+        '@Garden bridge',
+        '@Historic tower bridge',
+
+        '@Wooden pier',
+        '@Wooden footbridge',
+        '@Ornamental stone bridge',
+        '@Stone viaduct'
+    ],
+
+    seasonal:[
+
+        'v11_christmasTree',
+        'v11_winterMarket|v6_christmas',
+        'v11_snowman',
+        'v11_reindeer',
+
+        'v11_pumpkins|v6_halloween',
+        '@Halloween gateway',
+        'v6_summerFair',
+        '@Fireworks display',
+
+        '@Spring blossom tree',
+        'v6_flowerShow',
+        'v11_maypole',
+        '@Floral fountain',
+
+        'v6_iceRink|v6_winterVillage',
+        'v11_harvestDisplay|v6_harvest',
+        '@Festival market cart',
+        'v11_easterEgg|v6_easterFair'
+    ],
+
+    military:[
+
+        'v11_barracks',
+        'v11_watchtower',
+        '@Military hangar',
+        '@Military storage hangar',
+
+        'army',
+        '@Military radar installation',
+        '@Military equipment',
+        '@Communications mast',
+
+        '@Military tank',
+        '@Military transport vehicle',
+        '@Military truck',
+        '@Military utility vehicle',
+
+        'v11_militaryTent',
+        '@Camouflaged shelter',
+        'v11_sandbags',
+        'v11_securityFence'
+    ],
+
+    utilities:[
+
+        '@Cooling towers',
+        '@Thermal power station',
+        'substation',
+        'v11_pylon',
+
+        '@Solar array',
+        '@Wind turbines',
+        'v6_waterTreatment',
+        '@Water treatment tank',
+
+        '@Water tower',
+        'v6_hydro|v6_reservoir',
+        'pump',
+        '@Water pumping equipment',
+
+        '@Recycling centre',
+        'v6_wasteTransfer|wasteDepot',
+        'v6_biomass',
+        '@Recycling container'
+    ],
+
+    goods:[
+
+        '@Wheat',
+        '@Corn',
+        '@Carrots',
+        '@Potatoes',
+
+        '@Apples',
+        '@Grapes',
+        '@Strawberries',
+        '@Olives',
+
+        '@Fish',
+        '@Cheese',
+        '@Bread',
+        '@Meat',
+
+        '@Timber',
+        '@Wooden planks',
+        '@Coal',
+        '@Metal'
+    ]
+};
+
+// =====================================================
+// 03 — MATCH ARTWORK TO EXISTING CATALOGUE IDS
+// =====================================================
+
+function resolveId(id){
+
+    if(TYPES[id])return id;
+
+    if(TYPES['v6_'+id])return 'v6_'+id;
+
+    return null;
+}
+
+for(const [pack,names] of Object.entries(collection)){
+
+    names.forEach((names,index)=>{
+
+        if(names.startsWith('@'))return;
+
+        for(const name of names.split('|')){
+
+            const id=resolveId(name);
+
+            if(id&&!mappings.has(id)){
+
+                mappings.set(id,{pack,index});
+            }
+        }
+    });
+}
+
+function asset(pack,index){
+
+    return packs.get(pack)?.cells[index]||null;
+}
+
+function buildingArt(id){
+
+    const ref=mappings.get(id);
+
+    if(!ref)return null;
+
+    return asset(ref.pack,ref.index);
+}
+
+// =====================================================
+// 04 — MEMORY-EFFICIENT ARTWORK LOADER
+//
+// All source sheets remain 1024 x 1024.
+// Internal atlases are reduced to 768 x 768.
+// Each image is processed separately.
+// =====================================================
+
+const queue=Object.keys(collection);
+
+function loadNext(){
+
+    if(!queue.length){
+
+        console.log(
+            'Artwork loading complete',
+            {
+                loaded,
+                failed,
+                mappedBuildings:mappings.size
+            }
+        );
+
+        dirty=true;
+        return;
+    }
+
+    const name=queue.shift();
+
+    const image=new Image();
+
+    image.onload=()=>{
+
+        try{
+
+            if(
+                image.naturalWidth!==1024||
+                image.naturalHeight!==1024
+            ){
+
+                throw new Error(
+                    'Unexpected atlas dimensions'
+                );
+            }
+
+            const c=document.createElement('canvas');
+
+            c.width=768;
+            c.height=768;
+
+            const g=c.getContext('2d');
+
+            g.imageSmoothingEnabled=true;
+            g.imageSmoothingQuality='high';
+
+            g.drawImage(image,0,0,768,768);
+
+            const rgba=g.getImageData(
+                0,0,768,768
+            ).data;
+
+            const cells=[];
+
+            const size=192;
+
+            for(let i=0;i<16;i++){
+
+                const ox=(i%4)*size;
+                const oy=Math.floor(i/4)*size;
+
+                let left=size;
+                let right=-1;
+                let top=size;
+                let bottom=-1;
+
+                for(let y=0;y<size;y++){
+
+                    for(let x=0;x<size;x++){
+
+                        const alpha=rgba[
+
+                            (
+                                (oy+y)*768+
+                                ox+x
+                            )*4+3
+                        ];
+
+                        if(alpha>32){
+
+                            left=Math.min(left,x);
+                            right=Math.max(right,x);
+
+                            top=Math.min(top,y);
+                            bottom=Math.max(bottom,y);
+                        }
+                    }
+                }
+
+                if(right<left||bottom<top){
+
+                    cells.push(null);
+                    continue;
+                }
+
+                cells.push({
+
+                    image:c,
+
+                    x:ox+left,
+                    y:oy+top,
+
+                    w:right-left+1,
+                    h:bottom-top+1
+                });
+            }
+
+            packs.set(name,{canvas:c,cells});
+
+            loaded++;
+
+            if(name==='terrain'){
+
+                groundCache.clear();
+            }
+
+        }catch(error){
+
+            failed++;
+
+            console.warn(
+                'Artwork pack skipped:',
+                name,error
+            );
+        }
+
+        decorateCards();
+
+        refreshGallery();
+
+        addGoodsIcons();
+
+        dirty=true;
+
+        setTimeout(loadNext,60);
+    };
+
+    image.onerror=()=>{
+
+        failed++;
+
+        console.warn(
+            'Missing artwork:',
+            name+'-atlas.webp'
+        );
+
+        refreshGallery();
+
+        setTimeout(loadNext,60);
+    };
+
+    image.src='./'+name+'-atlas.webp';
+}
+
+// =====================================================
+// 05 — COMMON SPRITE RENDERING
+// =====================================================
+
+function paintSprite(
+    g,art,x,y,width,
+    flip=false,
+    bottom=0
+){
+
+    if(!art||!width)return false;
+
+    const height=width*art.h/art.w;
+
+    g.save();
+
+    g.translate(x,y);
+
+    if(flip){
+
+        g.scale(-1,1);
+    }
+
+    g.imageSmoothingEnabled=true;
+
+    g.drawImage(
+
+        art.image,
+
+        art.x,art.y,
+        art.w,art.h,
+
+        -width/2,
+        bottom-height,
+
+        width,height
+    );
+
+    g.restore();
+
+    return true;
+}
+
+function paintHeight(
+    g,art,x,y,height,flip=false
+){
+
+    if(!art)return false;
+
+    const width=height*art.w/art.h;
+
+    return paintSprite(
+        g,art,x,y,width,flip
+    );
+}
+
+// =====================================================
+// 06 — REPLACE CATALOGUE PREVIEWS
+// =====================================================
+
+decorateCards=function(){
+
+    const cards=[
+
+        ...$('catalogue')
+        .querySelectorAll('[data-type]')
+    ];
+
+    if(cards.some(
+
+        card=>
+
+            !seenCards.has(card)&&
+
+            !buildingArt(card.dataset.type)
+
+    )){
+
+        previous.decorateCards();
+    }
+
+    for(const card of cards){
+
+        seenCards.add(card);
+
+        const id=card.dataset.type;
+
+        const art=buildingArt(id);
+
+        const c=card.querySelector('canvas');
+
+        if(art&&c){
+
+            const g=c.getContext('2d');
+
+            const scale=Math.min(
+
+                (c.width-8)/art.w,
+
+                (c.height-6)/art.h
+            );
+
+            const w=art.w*scale;
+            const h=art.h*scale;
+
+            g.clearRect(
+                0,0,c.width,c.height
+            );
+
+            g.imageSmoothingEnabled=true;
+            g.imageSmoothingQuality='high';
+
+            g.drawImage(
+
+                art.image,
+
+                art.x,art.y,
+                art.w,art.h,
+
+                (c.width-w)/2,
+                (c.height-h)/2,
+
+                w,h
+            );
+        }
+
+        if(!card.querySelector('.v7foot')){
+
+            const [w,h]=dimensions(id);
+
+            const label=document.createElement(
+                'small'
+            );
+
+            label.className='v7foot';
+
+            label.textContent=w+'×'+h+' tiles';
+
+            card.append(label);
+        }
+    }
+};
+
+// =====================================================
+// 07 — NATURAL LANDSCAPE TEXTURES
+//
+// Preserve the exact original map geometry.
+// Extract surface textures from the terrain artwork.
+// =====================================================
+
+ground=function(t){
+
+    const pack=packs.get('terrain');
+
+    if(!pack){
+
+        return previous.ground(t);
+    }
+
+    const type=t.type;
+
+    const variant=Math.floor(
+        t.variant*8
+    );
+
+    const k=type+':'+variant;
+
+    if(groundCache.has(k)){
+
+        return groundCache.get(k);
+    }
+
+    let index;
+
+    if(type==='water'){
+
+        index=variant<4?4:5;
+
+    }else if(type==='sand'){
+
+        index=3;
+
+    }else{
+
+        index=variant===7?1:0;
+    }
+
+    const art=asset('terrain',index);
+
+    if(!art){
+
+        return previous.ground(t);
+    }
+
+    const c=document.createElement('canvas');
+
+    c.width=HW*4;
+    c.height=HH*4;
+
+    const g=c.getContext('2d');
+
+    // Preserve the existing base colour and alpha.
+
+    g.drawImage(
+        previous.ground(t),
+        0,0,c.width,c.height
+    );
+
+    g.scale(2,2);
+
+    g.translate(HW,HH);
+
+    g.beginPath();
+
+    g.moveTo(0,-HH);
+    g.lineTo(HW,0);
+    g.lineTo(0,HH);
+    g.lineTo(-HW,0);
+
+    g.closePath();
+
+    g.clip();
+
+    // Sample the textured upper surface only.
+
+    const sx=art.x+art.w*.31;
+
+    const sy=art.y+art.h*.28;
+
+    const sw=art.w*.38;
+
+    const sh=art.h*.23;
+
+    g.globalAlpha=.85;
+
+    g.drawImage(
+
+        art.image,
+
+        sx,sy,sw,sh,
+
+        -HW,-HH,
+
+        HW*2,HH*2
+    );
+
+    g.globalAlpha=1;
+
+    groundCache.set(k,c);
+
+    return c;
+};
+
+// =====================================================
+// 08 — ILLUSTRATED WORKING BRIDGES
+// =====================================================
+
+drawTile=function(t){
+
+    previous.drawTile(t);
+
+    const k=key(t.x,t.y);
+
+    const b=town.buildings[k];
+
+    if(!b?.bridge)return;
+
+    const art=asset('bridges',0);
+
+    if(!art)return;
+
+    const links=D.filter(([dx,dy])=>
+
+        ROAD.has(
+
+            town.buildings[
+
+                key(t.x+dx,t.y+dy)
+
+            ]?.type
+        )
+    );
+
+    if(links.length>2)return;
+
+    const horizontal=links.some(
+        ([dx])=>dx!==0
+    );
+
+    const vertical=links.some(
+        ([,dy])=>dy!==0
+    );
+
+    // Keep the earlier graphics at complex junctions.
+
+    if(horizontal&&vertical)return;
+
+    const [x,y]=project(t.x,t.y);
+
+    paintSprite(
+
+        ctx,art,x,y,
+
+        HW*2,
+
+        horizontal,
+
+        HH
+    );
+};
+
+// =====================================================
+// 09 — BUILDINGS, LANDMARKS AND VEGETATION
+// =====================================================
+
+const treeIDs=new Set([
+
+    'oak',
+    'pine',
+    'cherry',
+    'autumn',
+    'palm',
+    'v6_birch',
+    'v6_redwood',
+    'v6_magnolia',
+    'v6_weepingWillow'
+]);
+
+const narrowDecor=new Set([
+
+    'lamp',
+    'bench',
+    'v6_postBox',
+    'v6_phoneBox',
+    'v6_streetClock',
+    'v11_signal',
+    'v11_semaphore',
+    'v11_snowman',
+    'v11_pylon'
+]);
+
+function cropMarker(b,x,y){
+
+    if(!b.crop)return;
+
+    const remaining=Math.max(
+
+        0,b.crop.ready-state.tick
+    );
+
+    ctx.save();
+
+    ctx.translate(x,y-18);
+
+    disc(
+
+        0,0,8,5,
+
+        remaining
+
+            ?'#668c4b'
+
+            :'#e0bd47'
+    );
+
+    ctx.font='bold 8px sans-serif';
+
+    ctx.fillStyle='#ffffff';
+
+    ctx.textAlign='center';
+
+    ctx.fillText(
+
+        remaining?String(remaining):'✓',
+
+        0,2.5
+    );
+
+    ctx.restore();
+}
+
+drawObject=function(t){
+
+    const tile=key(t.x,t.y);
+
+    const anchor=occupied.get(tile);
+
+    const b=anchor&&town.buildings[anchor];
+
+    // Replace naturally growing trees.
+
+    if(!b){
+
+        const tree=asset('nature',0);
+
+        if(
+
+            !anchor&&
+            t.tree&&
+            !town.cleared[tile]&&
+            tree
+
+        ){
+
+            const [x,y]=project(t.x,t.y);
+
+            paintHeight(
+
+                ctx,tree,x,y,
+
+                36+t.variant*17,
+
+                t.variant>.5
+            );
+
+            return;
+        }
+
+        return previous.drawObject(t);
+    }
+
+    // The existing renderer owns connected roads
+    // and track topology.
+
+    if(
+
+        ROAD.has(b.type)||
+
+        TRACK.has(b.type)||
+
+        b.type==='path'
+
+    ){
+
+        return previous.drawObject(t);
+    }
+
+    const art=buildingArt(b.type);
+
+    if(!art){
+
+        return previous.drawObject(t);
+    }
+
+    // Use existing rear views where dedicated
+    // illustrated rear-facing assets are absent.
+
+    if((b.rot||0)>1){
+
+        return previous.drawObject(t);
+    }
+
+    // Maintain correct harbour quay orientation.
+
+    if(
+
+        seaPorts.has(b.type)&&
+
+        harbourFacing(anchor,b)>1
+
+    ){
+
+        return previous.drawObject(t);
+    }
+
+    const [x,y]=xy(anchor);
+
+    const w=b.w||1;
+    const h=b.h||1;
+
+    if(
+
+        t.x!==x+w-1||
+
+        t.y!==y+h-1
+
+    )return;
+
+    const [cx,cy]=project(
+
+        x+(w-1)/2,
+
+        y+(h-1)/2
+    );
+
+    let width=(w+h)*HW*.98;
+
+    let bottom=(w+h)*HH/2;
+
+    const flip=seaPorts.has(b.type)
+
+        ?harbourFacing(anchor,b)===1
+
+        :(b.rot||0)===1;
+
+    ctx.save();
+
+    if(moving===anchor){
+
+        ctx.globalAlpha=.45;
+    }
+
+    // Empty fields show bare soil rather than ripe crops.
+
+    if(
+
+        fieldCrop[bare(b.type)]&&
+
+        !b.crop
+
+    ){
+
+        for(const [a,d] of parts(anchor,b)){
+
+            ctx.save();
+
+            ctx.translate(...project(a,d));
+
+            diamond('#99734c','#80603f');
+
+            for(let i=-.35;i<=.35;i+=.14){
+
+                line(
+
+                    project(i,-.35),
+
+                    project(i,.35),
+
+                    '#715137',
+
+                    2
+                );
+            }
+
+            ctx.restore();
+        }
+
+        ctx.restore();
+
+        return;
+    }
+
+    if(treeIDs.has(b.type)){
+
+        paintHeight(
+
+            ctx,art,cx,cy,
+
+            53,flip
+        );
+
+    }else if(narrowDecor.has(b.type)){
+
+        paintHeight(
+
+            ctx,art,cx,cy,
+
+            b.type==='v11_pylon'?65:35,
+
+            flip
+        );
+
+    }else{
+
+        const group=TYPES[b.type]?.group;
+
+        if(
+
+            group==='Nature'&&
+
+            (w*h===1)&&
+
+            !/Fence|Wall|Bridge/i.test(b.type)
+
+        ){
+
+            width*=.88;
+        }
+
+        paintSprite(
+
+            ctx,art,cx,cy,
+
+            width,flip,bottom
+        );
+    }
+
+    ctx.restore();
+
+    cropMarker(b,cx,cy);
+};
+
+// =====================================================
+// 10 — LIVE PEOPLE AND TRANSPORT ARTWORK
+//
+// Used by the existing V0.5 traffic simulation.
+// Routes and movement are not duplicated.
+// =====================================================
+
+window.townArtAgent=function(a,position){
+
+    const [x,y,dx,dy]=position;
+
+    const [sx,sy]=project(x,y);
+
+    const kind=a.spec.kind;
+
+    let id=agentArt.get(a);
+
+    if(id===undefined){
+
+        id=nextAgent++;
+
+        agentArt.set(a,id);
+    }
+
+    if(kind==='person'){
+
+        const worker=id%6===0;
+
+        const pack=worker?'workers':'people';
+
+        const art=asset(pack,id%16);
+
+        const wheelchair=
+
+            !worker&&
+
+            [6,7].includes(id%16);
+
+        const bob=wheelchair
+
+            ?0
+
+            :Math.sin(
+                performance.now()/110+id
+            )*.45;
+
+        return paintHeight(
+
+            ctx,art,
+
+            sx,sy+bob,
+
+            15,
+
+            dx-dy<0
+        );
+    }
+
+    // Keep the existing bicycle renderer until
+    // dedicated cyclist sprites are available.
+
+    if(kind==='bike')return false;
+
+    let art=null;
+    let width=18;
+
+    if(kind==='car'){
+
+        art=asset('vehicles',id%3);
+
+        width=19;
+
+    }else if(kind==='bus'){
+
+        art=asset('vehicles',4);
+
+        width=28;
+
+    }else if(kind==='train'){
+
+        art=asset(
+
+            'vehicles',
+
+            id%3===0?12:11
+        );
+
+        width=36;
+
+    }else if(kind==='tram'){
+
+        art=asset('vehicles',5);
+
+        width=30;
+
+    }else if(kind==='metro'){
+
+        art=asset('vehicles',11);
+
+        width=32;
+
+    }else if(kind==='plane'){
+
+        art=asset('aircraft',0);
+
+        width=48;
+    }
+
+    return paintSprite(
+
+        ctx,art,sx,sy,
+
+        width,
+
+        dx-dy>0,
+
+        3
+    );
+};
+
+// =====================================================
+// 11 — SERVICE VEHICLE SPRITES
+// =====================================================
+
+function routePosition(route,distance){
+
+    if(!route||route.length<2)return null;
+
+    const n=route.length-1;
+
+    const d=clamp(distance,0,n);
+
+    const i=Math.min(
+
+        n-1,
+
+        Math.floor(d)
+    );
+
+    const f=d-i;
+
+    const [x,y]=xy(route[i]);
+
+    const [u,v]=xy(route[i+1]);
+
+    const [sx,sy]=project(
+
+        x+(u-x)*f,
+
+        y+(v-y)*f
+    );
+
+    return {
+
+        sx,sy,
+
+        dx:u-x,
+
+        dy:v-y
+    };
+}
+
+drawVehicle=function(route,time,metro=false){
+
+    const n=route.route.length-1;
+
+    if(n<1)return;
+
+    const phase=
+
+        (time*(metro?1.5:.8))%(2*n);
+
+    const returning=phase>n;
+
+    const p=routePosition(
+
+        route.route,
+
+        returning?2*n-phase:phase
+    );
+
+    const types={
+
+        '#c94843':7,
+
+        '#427bbb':8,
+
+        '#f5e9ca':6,
+
+        '#749750':9,
+
+        '#b18a56':3
+    };
+
+    const art=asset(
+
+        'vehicles',
+
+        metro?11:(types[route.col]??3)
+    );
+
+    if(!art||!p){
+
+        return previous.drawVehicle(
+
+            route,time,metro
+        );
+    }
+
+    paintSprite(
+
+        ctx,art,p.sx,p.sy,
+
+        metro?34:24,
+
+        (p.dx-p.dy)*(returning?-1:1)>0,
+
+        3
+    );
+};
+
+// =====================================================
+// 12 — ILLUSTRATED FISHING BOATS AND CARGO SHIPS
+// =====================================================
+
+drawSeaVessel=function(trip){
+
+    const route=trip.route;
+
+    if(!route||route.length<2)return;
+
+    const fraction=clamp(
+
+        (performance.now()-lastSeaTick)/10000,
+
+        0,.99
+    );
+
+    const duration=Math.max(
+
+        1,trip.end-trip.start
+    );
+
+    const progress=clamp(
+
+        (
+
+            state.tick-trip.start+fraction
+
+        )/duration,
+
+        0,1
+    );
+
+    const n=route.length-1;
+
+    const phase=progress*2;
+
+    const returning=phase>1;
+
+    const p=routePosition(
+
+        route,
+
+        (returning?2-phase:phase)*n
+    );
+
+    const fishing=trip.type==='fishing';
+
+    const art=asset(
+
+        'boats',
+
+        fishing?6:8
+    );
+
+    if(!art||!p){
+
+        return previous.drawSeaVessel(trip);
+    }
+
+    const flip=
+
+        (p.dx-p.dy)*(returning?-1:1)>0;
+
+    ctx.save();
+
+    ctx.translate(p.sx,p.sy);
+
+    // Small wake trailing the moving vessel.
+
+    const wake=flip?-1:1;
+
+    for(let i=0;i<3;i++){
+
+        line(
+
+            [wake*(12+i*5),-3],
+
+            [wake*(18+i*5),0],
+
+            '#d4f6ef88',
+
+            1
+        );
+
+        line(
+
+            [wake*(12+i*5),3],
+
+            [wake*(18+i*5),0],
+
+            '#d4f6ef88',
+
+            1
+        );
+    }
+
+    paintSprite(
+
+        ctx,art,0,0,
+
+        fishing?31:57,
+
+        flip,
+
+        5
+    );
+
+    ctx.restore();
+};
+
+// =====================================================
+// 13 — PASSENGER FERRY ARTWORK
+//
+// Connects to existing V0.9 ferry animation.
+// =====================================================
+
+window.townArtFerry=function(dx,dy,returning){
+
+    const art=asset('boats',4);
+
+    if(!art)return false;
+
+    const angle=
+
+        Math.atan2(
+
+            (dx+dy)*HH,
+
+            (dx-dy)*HW
+
+        )+
+
+        (returning?Math.PI:0);
+
+    ctx.save();
+
+    // Undo the earlier flat vehicle rotation.
+
+    ctx.rotate(-angle);
+
+    paintSprite(
+
+        ctx,art,0,0,
+
+        43,
+
+        (dx-dy)*(returning?-1:1)>0,
+
+        4
+    );
+
+    ctx.restore();
+
+    return true;
+};
+
+// =====================================================
+// 14 — TRADE GOODS AND MARKETPLACE ICONS
+// =====================================================
+
+const goodsIcons={
+
+    wheat:0,
+    corn:1,
+    carrots:2,
+    potatoes:3,
+
+    apples:4,
+    grapes:5,
+    strawberry:6,
+    olives:7,
+
+    fish:8,
+    cheese:9,
+    bread:10,
+
+    'farm produce':11,
+
+    timber:12,
+    furniture:13,
+
+    coal:14,
+    metal:15,
+
+    'fresh seafood':8,
+    'canned fish':8,
+    'seafood meals':8
+};
+
+function iconCanvas(art,size=32){
+
+    const c=document.createElement('canvas');
+
+    c.width=size*2;
+
+    c.height=size*2;
+
+    c.style.width=size+'px';
+
+    c.style.height=size+'px';
+
+    const g=c.getContext('2d');
+
+    if(art){
+
+        const scale=Math.min(
+
+            (c.width-4)/art.w,
+
+            (c.height-4)/art.h
+        );
+
+        const w=art.w*scale;
+        const h=art.h*scale;
+
+        g.drawImage(
+
+            art.image,
+
+            art.x,art.y,
+            art.w,art.h,
+
+            (c.width-w)/2,
+
+            (c.height-h)/2,
+
+            w,h
+        );
+    }
+
+    return c;
+}
+
+function addGoodsIcons(){
+
+    const market=$('v10economy');
+
+    if(!market)return;
+
+    for(const label of market.querySelectorAll(
+
+        '.v10good .v10row span'
+
+    )){
+
+        if(label.querySelector('.v11goodsIcon')){
+
+            continue;
+        }
+
+        const name=
+
+            label.textContent.split(' × ')[0]
+
+            .trim();
+
+        const index=goodsIcons[name];
+
+        if(index===undefined)continue;
+
+        const art=asset('goods',index);
+
+        if(!art)continue;
+
+        const c=iconCanvas(art,34);
+
+        c.className='v11goodsIcon';
+
+        label.prepend(c);
+    }
+}
+
+const market=$('v10economy');
+
+if(market){
+
+    new MutationObserver(addGoodsIcons)
+
+        .observe(
+
+            market,
+
+            {childList:true}
+        );
+}
+
+// =====================================================
+// 15 — ARTWORK LIBRARY AND LOADING STATUS
+//
+// Browse all 400 original sprites, including assets
+// reserved for further gameplay development.
+// =====================================================
+
+function el11(tag,text,parent){
+
+    const e=document.createElement(tag);
+
+    if(text!==undefined){
+
+        e.textContent=text;
+    }
+
+    if(parent)parent.append(e);
+
+    return e;
+}
+
+const gallery=el11(
+
+    'section',
+
+    undefined,
+
+    document.body
+);
+
+gallery.id='v11gallery';
+
+gallery.hidden=true;
+
+let currentPack='town-buildings';
+
+const galleryButton=el11(
+
+    'button',
+
+    'Artwork library',
+
+    $('v7tools')
+);
+
+galleryButton.onclick=()=>{
+
+    gallery.hidden=!gallery.hidden;
+
+    if(!gallery.hidden){
+
+        panel.hidden=true;
+
+        if($('v10economy')){
+
+            $('v10economy').hidden=true;
+        }
+
+        refreshGallery();
+    }
+};
+
+function readablePack(name){
+
+    return name
+
+        .replaceAll('-',' ')
+
+        .replace(
+
+            /\b\w/g,
+
+            c=>c.toUpperCase()
+        );
+}
+
+function spriteName(text){
+
+    if(text.startsWith('@')){
+
+        return text.slice(1);
+    }
+
+    const ids=text.split('|');
+
+    for(const name of ids){
+
+        const id=resolveId(name);
+
+        if(id)return TYPES[id].name;
+    }
+
+    return text.split('|')[0];
+}
+
+function refreshGallery(){
+
+    if(gallery.hidden)return;
+
+    gallery.replaceChildren();
+
+    const header=el11(
+
+        'div',
+
+        undefined,
+
+        gallery
+    );
+
+    header.className='v11head';
+
+    el11(
+
+        'strong',
+
+        'Original artwork collection',
+
+        header
+    );
+
+    const close=el11(
+
+        'button','Close ×',header
+    );
+
+    close.onclick=()=>gallery.hidden=true;
+
+    el11(
+
+        'p',
+
+        loaded+' / 25 packs loaded • '+
+
+        mappings.size+' catalogue items matched',
+
+        gallery
+    );
+
+    if(failed){
+
+        el11(
+
+            'p',
+
+            failed+' artwork files unavailable. '+
+
+            'Original fallback graphics are active.',
+
+            gallery
+        );
+    }
+
+    const select=el11(
+
+        'select',
+
+        undefined,
+
+        gallery
+    );
+
+    for(const name of Object.keys(collection)){
+
+        const o=el11(
+
+            'option',
+
+            readablePack(name),
+
+            select
+        );
+
+        o.value=name;
+    }
+
+    select.value=currentPack;
+
+    select.onchange=()=>{
+
+        currentPack=select.value;
+
+        refreshGallery();
+    };
+
+    const grid=el11(
+
+        'div',
+
+        undefined,
+
+        gallery
+    );
+
+    grid.className='v11grid';
+
+    collection[currentPack].forEach(
+
+        (name,index)=>{
+
+            const card=el11(
+
+                'div',
+
+                undefined,
+
+                grid
+            );
+
+            card.className='v11artcard';
+
+            const art=asset(
+
+                currentPack,index
+            );
+
+            if(art){
+
+                card.append(
+
+                    iconCanvas(art,76)
+                );
+
+            }else{
+
+                el11(
+
+                    'p',
+
+                    'Awaiting artwork',
+
+                    card
+                );
+            }
+
+            el11(
+
+                'small',
+
+                spriteName(name),
+
+                card
+            );
+        }
+    );
+}
+
+// =====================================================
+// 16 — INTERFACE POLISH
+// =====================================================
+
+const css11=el11(
+
+    'style',
+
+    undefined,
+
+    document.head
+);
+
+css11.textContent=`
+
+#v11gallery{
+
+    position:absolute;
+
+    top:78px;
+
+    right:12px;
+
+    width:min(
+        440px,
+        calc(100vw - 28px)
+    );
+
+    max-height:calc(100dvh - 175px);
+
+    overflow:auto;
+
+    background:#fff4dc;
+
+    color:#634b35;
+
+    z-index:45;
+
+    border:2px solid #a98a62;
+
+    border-radius:15px;
+
+    padding:12px;
+
+    box-shadow:
+
+        0 5px 0 #92734e,
+
+        0 12px 30px #30463855;
+
+    font-size:12px;
+}
+
+#v11gallery[hidden]{
+
+    display:none;
+}
+
+.v11head{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    gap:6px;
+}
+
+.v11head strong{
+
+    font-size:16px;
+}
+
+#v11gallery button,
+#v11gallery select{
+
+    background:#e7d5b1;
+
+    color:#674d35;
+
+    border:1px solid #b8a079;
+
+    border-radius:8px;
+
+    padding:7px;
+
+    font:inherit;
+}
+
+#v11gallery select{
+
+    width:100%;
+
+    margin:6px 0;
+}
+
+.v11grid{
+
+    display:grid;
+
+    grid-template-columns:
+
+        repeat(4,minmax(0,1fr));
+
+    gap:5px;
+
+    margin-top:9px;
+}
+
+.v11artcard{
+
+    display:flex;
+
+    flex-direction:column;
+
+    align-items:center;
+
+    justify-content:center;
+
+    text-align:center;
+
+    min-height:96px;
+
+    background:#fffaf0;
+
+    border:1px solid #d4bf99;
+
+    border-radius:9px;
+
+    padding:4px;
+}
+
+.v11artcard canvas{
+
+    max-width:100%;
+
+    object-fit:contain;
+}
+
+.v11artcard small{
+
+    font-size:10px;
+
+    line-height:1.2;
+}
+
+.v11goodsIcon{
+
+    vertical-align:middle;
+
+    margin-right:7px;
+}
+
+#catalogue .item canvas{
+
+    image-rendering:auto;
+}
+
+#catalogue .item{
+
+    background:
+
+        linear-gradient(
+
+            #fffdf4,
+
+            #f0e6cc
+        );
+}
+
+#catalogue .item.active{
+
+    background:#ffefb7;
+}
+
+@media(max-height:480px){
+
+    #v11gallery{
+
+        top:48px;
+
+        max-height:
+
+            calc(100dvh - 65px);
+    }
+}
+
+`;
+
+// =====================================================
+// 17 — ACTIVATE THE COMPLETE ARTWORK COLLECTION
+// =====================================================
+
+$('v5search').dispatchEvent(
+
+    new Event('input')
+);
+
+decorateCards();
+
+loadNext();
+
+dirty=true;
+
+console.log(
+
+    'V0.11 artwork engine installed'
+);
+
+})();
+
+/* END OF V0.11 — THE ILLUSTRATED WORLD */
+  
 
 /* END OF V0.10 */
 
