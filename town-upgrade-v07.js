@@ -15606,6 +15606,806 @@ function refreshGallery(){
 // 16 — INTERFACE POLISH
 // =====================================================
 
+   
+/* =====================================================
+   V0.12 — STREETS & LIVING TRAFFIC
+   Insert inside V0.11 before const css11=el11(
+   ===================================================== */
+
+(()=>{
+'use strict';
+
+if(window.townV12)return;
+window.townV12=true;
+
+const earlierTile=drawTile;
+const earlierObject=drawObject;
+const earlierAgent=window.townArtAgent;
+
+const streetCache=new Map();
+
+const streetStyles={
+
+    road:{
+        width:.30,
+        edge:.43,
+        surface:'#55575a',
+        pavement:'#d9c8ad',
+        texture:1
+    },
+
+    avenue:{
+        width:.39,
+        edge:.49,
+        surface:'#4d5258',
+        pavement:'#d9c8ad',
+        texture:1
+    },
+
+    lane:{
+        width:.25,
+        edge:.34,
+        surface:'#bca079',
+        pavement:'#a6c779',
+        texture:13
+    },
+
+    cobble:{
+        width:.34,
+        edge:.44,
+        surface:'#9c9690',
+        pavement:'#d8c7a8',
+        texture:13
+    },
+
+    path:{
+        width:.16,
+        edge:.23,
+        surface:'#d7be93',
+        pavement:'#a9cc79',
+        texture:8
+    }
+};
+
+const streetDirections=[
+    [1,0],
+    [-1,0],
+    [0,1],
+    [0,-1]
+];
+
+// ==========================================
+// 01 — CONNECTED STREET GEOMETRY
+// ==========================================
+
+function streetLinks(t){
+
+    return streetDirections.filter(
+
+        ([dx,dy])=>
+
+            !!streetStyles[
+
+                town.buildings[
+
+                    key(t.x+dx,t.y+dy)
+
+                ]?.type
+
+            ]
+    );
+}
+
+function streetShape(width,links){
+
+    const p=new Path2D();
+
+    p.rect(
+        -width,-width,
+        width*2,width*2
+    );
+
+    for(const [x,y] of links){
+
+        if(x===1){
+
+            p.rect(
+                0,-width,
+                .5,width*2
+            );
+        }
+
+        if(x===-1){
+
+            p.rect(
+                -.5,-width,
+                .5,width*2
+            );
+        }
+
+        if(y===1){
+
+            p.rect(
+                -width,0,
+                width*2,.5
+            );
+        }
+
+        if(y===-1){
+
+            p.rect(
+                -width,-.5,
+                width*2,.5
+            );
+        }
+    }
+
+    return p;
+}
+
+// ==========================================
+// 02 — SAMPLE ORIGINAL ROAD ARTWORK
+// ==========================================
+
+function roadTexture(g,index){
+
+    const art=asset('roads',index);
+
+    if(!art)return null;
+
+    const c=document.createElement('canvas');
+
+    c.width=24;
+    c.height=24;
+
+    const p=c.getContext('2d');
+
+    p.drawImage(
+
+        art.image,
+
+        art.x+art.w*.40,
+        art.y+art.h*.47,
+
+        art.w*.07,
+        art.h*.08,
+
+        0,0,24,24
+    );
+
+    return g.createPattern(c,'repeat');
+}
+
+// ==========================================
+// 03 — HIGHER QUALITY STREET TILES
+// ==========================================
+
+function makeStreet(id,links){
+
+    const mask=streetDirections.map(
+
+        ([a,b])=>
+
+            links.some(
+
+                ([x,y])=>a===x&&b===y
+
+            )?1:0
+
+    ).join('');
+
+    const cacheKey=
+
+        id+':'+mask+':'+packs.has('roads');
+
+    if(streetCache.has(cacheKey)){
+
+        return streetCache.get(cacheKey);
+    }
+
+    const s=streetStyles[id];
+
+    const c=document.createElement('canvas');
+
+    c.width=HW*4;
+    c.height=HH*4;
+
+    const g=c.getContext('2d');
+
+    // Draw in isometric world coordinates.
+
+    g.setTransform(
+
+        HW*2,HH*2,
+
+        -HW*2,HH*2,
+
+        HW*2,HH*2
+    );
+
+    const border=streetShape(
+        s.edge,links
+    );
+
+    const surface=streetShape(
+        s.width,links
+    );
+
+    // Pavement foundations.
+
+    g.fillStyle='#8e806b';
+
+    g.fill(border);
+
+    g.fillStyle=s.pavement;
+
+    g.fill(
+        streetShape(
+            s.edge-.012,
+            links
+        )
+    );
+
+    // Individual pavement slabs.
+
+    g.save();
+
+    g.clip(border);
+
+    g.strokeStyle='#85796755';
+
+    g.lineWidth=.012;
+
+    for(let i=-.5;i<=.5;i+=.12){
+
+        g.beginPath();
+
+        g.moveTo(i,-.5);
+        g.lineTo(i,.5);
+
+        g.stroke();
+
+        g.beginPath();
+
+        g.moveTo(-.5,i);
+        g.lineTo(.5,i);
+
+        g.stroke();
+    }
+
+    g.restore();
+
+    // Kerb edging.
+
+    g.fillStyle='#eee1c9';
+
+    g.fill(
+        streetShape(
+            s.width+.018,
+            links
+        )
+    );
+
+    // Street surface.
+
+    g.fillStyle=s.surface;
+
+    g.fill(surface);
+
+    // Detailed texture from the illustrated atlas.
+
+    g.save();
+
+    g.clip(surface);
+
+    g.setTransform(1,0,0,1,0,0);
+
+    const texture=roadTexture(
+        g,s.texture
+    );
+
+    if(texture){
+
+        g.globalAlpha=.48;
+
+        g.fillStyle=texture;
+
+        g.fillRect(
+            0,0,c.width,c.height
+        );
+    }
+
+    // Fine surface grain.
+
+    g.globalAlpha=.12;
+
+    for(let i=0;i<170;i++){
+
+        const x=(i*37)%c.width;
+        const y=(i*53)%c.height;
+
+        g.fillStyle=
+
+            i%2
+                ?'#ffffff'
+                :'#161a1d';
+
+        g.fillRect(x,y,1,1);
+    }
+
+    g.restore();
+
+    // Individual cobblestones.
+
+    if(id==='cobble'){
+
+        g.save();
+
+        g.clip(surface);
+
+        for(let row=0;row<12;row++){
+
+            for(let col=0;col<12;col++){
+
+                const x=
+
+                    -.5+col*.09+
+
+                    (row%2)*.045;
+
+                const y=-.5+row*.09;
+
+                g.fillStyle=[
+
+                    '#b0aaa0',
+                    '#9c968d',
+                    '#c0b6a7',
+                    '#888982'
+
+                ][(row+col)%4];
+
+                g.fillRect(
+
+                    x,y,.078,.074
+                );
+            }
+        }
+
+        g.restore();
+    }
+
+    // White road markings.
+
+    if(id==='road'||id==='avenue'){
+
+        g.save();
+
+        g.clip(surface);
+
+        g.strokeStyle='#f3efdd';
+
+        g.lineWidth=.028;
+
+        g.lineCap='butt';
+
+        function marking(a,b){
+
+            g.beginPath();
+
+            g.moveTo(...a);
+            g.lineTo(...b);
+
+            g.stroke();
+        }
+
+        for(const [x,y] of links){
+
+            marking(
+
+                [x*.30,y*.30],
+
+                [x*.46,y*.46]
+            );
+
+            if(id==='avenue'){
+
+                for(const side of [-1,1]){
+
+                    const offset=.30*side;
+
+                    marking(
+
+                        [
+                            x*.05-y*offset,
+                            y*.05+x*offset
+                        ],
+
+                        [
+                            x*.50-y*offset,
+                            y*.50+x*offset
+                        ]
+                    );
+                }
+            }
+        }
+
+        // Continue markings through straight roads.
+
+        if(
+
+            links.length===2&&
+
+            links[0][0]===-links[1][0]&&
+
+            links[0][1]===-links[1][1]
+        ){
+
+            const [x,y]=links[0];
+
+            marking(
+
+                [-x*.09,-y*.09],
+
+                [x*.09,y*.09]
+            );
+        }
+
+        g.restore();
+    }
+
+    streetCache.set(cacheKey,c);
+
+    return c;
+}
+
+// ==========================================
+// 04 — DRAW THE NEW STREETS
+// ==========================================
+
+drawTile=function(t){
+
+    const b=town.buildings[
+        key(t.x,t.y)
+    ];
+
+    const id=b?.type;
+
+    // Existing bridge and railway geometry retained.
+
+    if(!streetStyles[id]||b.bridge){
+
+        return earlierTile(t);
+    }
+
+    const [x,y]=project(t.x,t.y);
+
+    const links=streetLinks(t);
+
+    if(!links.length){
+
+        links.push([1,0],[-1,0]);
+    }
+
+    // Seamlessly blend streets into the new landscape.
+
+    ctx.drawImage(
+
+        ground(t),
+
+        x-HW,y-HH,
+
+        HW*2,HH*2
+    );
+
+    const image=makeStreet(id,links);
+
+    ctx.drawImage(
+
+        image,
+
+        x-HW,y-HH,
+
+        HW*2,HH*2
+    );
+};
+
+// ==========================================
+// 05 — ROADSIDE LAMPS AND FLOWERS
+// ==========================================
+
+drawObject=function(t){
+
+    earlierObject(t);
+
+    const b=town.buildings[
+        key(t.x,t.y)
+    ];
+
+    if(
+
+        !b||
+
+        b.bridge||
+
+        !['road','avenue','cobble']
+            .includes(b.type)
+
+    )return;
+
+    const links=streetLinks(t);
+
+    // Only decorate straight street sections.
+
+    if(
+
+        links.length!==2||
+
+        links[0][0]!==-links[1][0]||
+
+        links[0][1]!==-links[1][1]
+
+    )return;
+
+    const alongX=links[0][0]!==0;
+
+    const offset=b.type==='avenue'
+        ?.46:.39;
+
+    const [sx,sy]=project(
+
+        t.x+(alongX?0:offset),
+
+        t.y+(alongX?offset:0)
+    );
+
+    // Space roadside decorations along the street.
+
+    if((t.x+t.y)%3===0){
+
+        const lamp=asset(
+            'decoration',7
+        );
+
+        paintHeight(
+
+            ctx,lamp,
+
+            sx,sy,
+
+            28
+        );
+
+    }else if((t.x+t.y)%3===1){
+
+        const flowers=asset(
+            'nature',8
+        );
+
+        paintSprite(
+
+            ctx,flowers,
+
+            sx,sy,
+
+            13
+        );
+    }
+};
+
+// ==========================================
+// 06 — LARGER ILLUSTRATED RESIDENTS
+// ==========================================
+
+window.townArtAgent=function(a,position){
+
+    const [x,y,dx,dy]=position;
+
+    const [sx,sy]=project(x,y);
+
+    // Avoid rendering off-screen traffic.
+
+    const screenX=sx*zoom+camX;
+    const screenY=sy*zoom+camY;
+
+    if(
+
+        screenX<-100||
+
+        screenX>W+100||
+
+        screenY<-100||
+
+        screenY>H+100
+
+    )return true;
+
+    let id=agentArt.get(a);
+
+    if(id===undefined){
+
+        id=nextAgent++;
+
+        agentArt.set(a,id);
+    }
+
+    const kind=a.spec.kind;
+
+    if(kind==='person'){
+
+        const worker=id%5===0;
+
+        const index=id%16;
+
+        const art=
+
+            asset(
+
+                worker?'workers':'people',
+
+                index
+            )
+
+            ||
+
+            asset('vehicles',15);
+
+        if(!art){
+
+            return earlierAgent?.(
+                a,position
+            )||false;
+        }
+
+        const wheelchair=
+
+            !worker&&
+
+            [6,7].includes(index);
+
+        const bob=wheelchair
+
+            ?0
+
+            :Math.sin(
+
+                performance.now()/100+id
+
+            )*.65;
+
+        ctx.save();
+
+        ctx.imageSmoothingQuality='high';
+
+        // Soft ground shadow.
+
+        disc(
+
+            sx,sy+1,
+
+            4,1.8,
+
+            '#29482c35'
+        );
+
+        // Residents are larger and easier to see.
+
+        paintHeight(
+
+            ctx,art,
+
+            sx,sy+bob,
+
+            wheelchair?21:23,
+
+            dx-dy>0
+        );
+
+        ctx.restore();
+
+        return true;
+    }
+
+    // ======================================
+    // 07 — ILLUSTRATED MOVING VEHICLES
+    // ======================================
+
+    const vehicleTypes={
+
+        car:[
+            'vehicles',
+            id%3,
+            25
+        ],
+
+        bus:[
+            'vehicles',
+            4,
+            34
+        ],
+
+        train:[
+            'vehicles',
+            id%3===0?12:11,
+            43
+        ],
+
+        tram:[
+            'vehicles',
+            5,
+            37
+        ],
+
+        metro:[
+            'vehicles',
+            11,
+            38
+        ],
+
+        plane:[
+            'aircraft',
+            0,
+            52
+        ]
+    };
+
+    const spec=vehicleTypes[kind];
+
+    // Preserve the existing cyclists.
+
+    if(!spec){
+
+        return earlierAgent?.(
+            a,position
+        )||false;
+    }
+
+    const [pack,index,width]=spec;
+
+    const art=asset(pack,index);
+
+    if(!art){
+
+        return earlierAgent?.(
+            a,position
+        )||false;
+    }
+
+    ctx.save();
+
+    ctx.imageSmoothingQuality='high';
+
+    paintSprite(
+
+        ctx,art,sx,sy,
+
+        width,
+
+        dx-dy>0,
+
+        3
+    );
+
+    ctx.restore();
+
+    return true;
+};
+
+// ==========================================
+// 08 — ACTIVATE STREET IMPROVEMENTS
+// ==========================================
+
+dirty=true;
+
+console.log(
+
+    'Town Builder V0.12 — Illustrated streets and living traffic ready'
+);
+
+})();
+
+/* END OF V0.12 */
+
+   
 const css11=el11(
 
     'style',
