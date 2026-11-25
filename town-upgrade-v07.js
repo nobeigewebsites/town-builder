@@ -11893,6 +11893,1486 @@ console.log(
 
 })();
 
+   
+/* ==========================================
+   V0.10 — ORIGINAL ARTWORK & TOWN ECONOMY
+   Insert before the END OF V0.9 marker.
+   ========================================== */
+
+(()=>{
+'use strict';
+
+if(window.townV10)return;
+window.townV10=true;
+
+const previous={
+    drawObject,
+    decorateCards,
+    changed,
+    tick,
+    render
+};
+
+const E=state.v10||(state.v10={});
+
+E.autoSales??={};
+E.sales??=0;
+E.revenue??=0;
+
+let artworkReady=false;
+let utilityOverlay=false;
+let currentTab='market';
+
+
+// ==========================================
+// 01 — ORIGINAL ILLUSTRATED BUILDING ASSETS
+// ==========================================
+
+const atlas=new Image();
+
+const artwork={
+    cottage:0,
+    tudor:1,
+    villa:2,
+    victorian:3,
+
+    modern:4,
+    alpine:5,
+    georgian:6,
+    apartments:7,
+
+    bakery:8,
+    florist:9,
+    cafe:10,
+    greengrocer:11,
+
+    townhall:12,
+    nationalLibrary:13,
+    windmill:14,
+    v6_fishingHarbour:15
+};
+
+// Individual transparent sprite dimensions.
+
+const spriteSizes=[
+    [248,248],
+    [231,248],
+    [248,236],
+    [227,248],
+
+    [248,218],
+    [248,234],
+    [248,233],
+    [241,248],
+
+    [248,230],
+    [248,235],
+    [248,238],
+    [248,236],
+
+    [241,248],
+    [248,237],
+    [241,248],
+    [248,218]
+];
+
+function spriteBounds(id){
+
+    const i=artwork[id];
+
+    if(i===undefined)return null;
+
+    const [w,h]=spriteSizes[i];
+
+    return [
+        (i%4)*256+
+            Math.floor((256-w)/2),
+
+        Math.floor(i/4)*256+
+            252-h,
+
+        w,h
+    ];
+}
+
+function hasIllustration(id){
+
+    return artworkReady&&
+        Object.hasOwn(artwork,id);
+}
+
+
+// ==========================================
+// 02 — DRAW PROFESSIONAL BUILDING SPRITES
+// ==========================================
+
+drawObject=function(t){
+
+    const k=key(t.x,t.y);
+
+    const anchor=occupied.get(k);
+
+    const b=anchor&&town.buildings[anchor];
+
+    if(!b||!hasIllustration(b.type)){
+
+        return previous.drawObject(t);
+    }
+
+    // Retain operational harbour orientations.
+    // Dedicated harbour views will be added later.
+
+    if(b.type==='v6_fishingHarbour'){
+
+        return previous.drawObject(t);
+    }
+
+    const rotation=b.rot||0;
+
+    // Keep the original back views until
+    // separately illustrated assets exist.
+
+    if(rotation>1){
+
+        return previous.drawObject(t);
+    }
+
+    const [x,y]=xy(anchor);
+
+    const w=b.w||1;
+    const h=b.h||1;
+
+    // Draw each multi-tile property once.
+
+    if(
+        t.x!==x+w-1||
+        t.y!==y+h-1
+    )return;
+
+    const [cx,cy]=project(
+        x+(w-1)/2,
+        y+(h-1)/2
+    );
+
+    const [sx,sy,sw,sh]=
+        spriteBounds(b.type);
+
+    const width=(w+h)*HW*.96;
+
+    const height=width*sh/sw;
+
+    const bottom=(w+h)*HH/2;
+
+    ctx.save();
+
+    ctx.translate(cx,cy);
+
+    if(rotation===1){
+
+        ctx.scale(-1,1);
+    }
+
+    if(moving===anchor){
+
+        ctx.globalAlpha=.45;
+    }
+
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality='high';
+
+    ctx.drawImage(
+        atlas,
+
+        sx,sy,sw,sh,
+
+        -width/2,
+
+        bottom-height,
+
+        width,height
+    );
+
+    ctx.restore();
+};
+
+
+// ==========================================
+// 03 — HIGH QUALITY CATALOGUE PREVIEWS
+// ==========================================
+
+decorateCards=function(){
+
+    previous.decorateCards();
+
+    if(!artworkReady)return;
+
+    for(const card of
+        $('catalogue')
+            .querySelectorAll('[data-type]')
+    ){
+
+        const id=card.dataset.type;
+
+        if(!hasIllustration(id))continue;
+
+        const c=card.querySelector('canvas');
+
+        if(!c)continue;
+
+        const g=c.getContext('2d');
+
+        const [x,y,w,h]=spriteBounds(id);
+
+        const scale=Math.min(
+            (c.width-6)/w,
+            (c.height-4)/h
+        );
+
+        g.clearRect(
+            0,0,c.width,c.height
+        );
+
+        g.imageSmoothingEnabled=true;
+        g.imageSmoothingQuality='high';
+
+        g.drawImage(
+            atlas,
+
+            x,y,w,h,
+
+            (c.width-w*scale)/2,
+
+            (c.height-h*scale)/2,
+
+            w*scale,h*scale
+        );
+    }
+};
+
+atlas.onload=()=>{
+
+    if(
+        atlas.naturalWidth!==1024||
+        atlas.naturalHeight!==1024
+    ){
+
+        console.warn(
+            'Building atlas has incorrect dimensions.'
+        );
+
+        return;
+    }
+
+    artworkReady=true;
+
+    decorateCards();
+
+    dirty=true;
+
+    refreshEconomy();
+
+    message(
+        'Original illustrated buildings loaded.'
+    );
+};
+
+atlas.onerror=()=>{
+
+    console.warn(
+        'Artwork missing. Existing graphics retained.'
+    );
+
+    refreshEconomy();
+};
+
+
+// ==========================================
+// 04 — MARKETPLACE AND WAREHOUSE
+// ==========================================
+
+function goodsPrice(name){
+
+    return salePrices[name]||8;
+}
+
+function warehouseValue(){
+
+    return Object.entries(state.stock)
+        .reduce(
+            (total,[name,n])=>
+                total+n*goodsPrice(name),
+            0
+        );
+}
+
+function sellGoods(name,quantity){
+
+    const available=
+        state.stock[name]||0;
+
+    const amount=Math.min(
+        available,
+        Math.max(0,Math.floor(quantity))
+    );
+
+    if(amount<=0)return;
+
+    const earnings=
+        amount*goodsPrice(name);
+
+    state.stock[name]-=amount;
+
+    town.cash+=earnings;
+
+    E.sales+=amount;
+
+    E.revenue+=earnings;
+
+    changed(
+        'Sold '+amount+' '+name+
+        ' for '+money(earnings)
+    );
+}
+
+function sellWarehouse(){
+
+    const value=warehouseValue();
+
+    if(!value)return;
+
+    if(!confirm(
+        'Sell ALL warehouse goods for '+
+        money(value)+
+        '? This includes factory ingredients.'
+    ))return;
+
+    let units=0;
+
+    for(const name of
+        Object.keys(state.stock)
+    ){
+
+        units+=state.stock[name];
+
+        state.stock[name]=0;
+    }
+
+    town.cash+=value;
+
+    E.sales+=units;
+
+    E.revenue+=value;
+
+    changed(
+        'Warehouse sold for '+money(value)
+    );
+}
+
+
+// ==========================================
+// 05 — OPTIONAL AUTOMATIC GOODS SALES
+// ==========================================
+
+function automaticSales(){
+
+    let earnings=0;
+    let units=0;
+
+    for(const name of
+        Object.keys(E.autoSales)
+    ){
+
+        if(!E.autoSales[name])continue;
+
+        const available=
+            state.stock[name]||0;
+
+        // Retain ten units for local production.
+
+        const amount=Math.min(
+            10,
+            Math.max(0,available-10)
+        );
+
+        if(amount<=0)continue;
+
+        state.stock[name]-=amount;
+
+        earnings+=amount*goodsPrice(name);
+
+        units+=amount;
+    }
+
+    if(earnings){
+
+        town.cash+=earnings;
+
+        E.sales+=units;
+
+        E.revenue+=earnings;
+
+        changed(
+            'Automatic market sales: '+
+            money(earnings)
+        );
+    }
+}
+
+tick=function(){
+
+    previous.tick();
+
+    automaticSales();
+
+    refreshEconomy();
+};
+
+
+// ==========================================
+// 06 — INFRASTRUCTURE CONNECTION ASSISTANT
+// ==========================================
+
+const utilityTypes=[
+    'power',
+    'water',
+    'sewage'
+];
+
+const utilityLabels=[
+    'Electricity',
+    'Water',
+    'Sewage'
+];
+
+function utilityRoute(target,l){
+
+    const b=town.buildings[target];
+
+    if(!b)return [];
+
+    const i=utilityTypes.indexOf(l);
+
+    if(i<0)return [];
+
+    const sourceTiles=new Set();
+
+    for(const [k,source] of
+        Object.entries(town.buildings)
+    ){
+
+        const supply=
+            capacity[bare(source.type)]?.[i]||0;
+
+        if(!supply)continue;
+
+        for(const [x,y] of parts(k,source)){
+
+            if(inside(x,y)&&owned(x,y)){
+
+                sourceTiles.add(key(x,y));
+            }
+        }
+    }
+
+    if(!sourceTiles.size)return [];
+
+    const queue=[];
+
+    const parent=new Map();
+
+    for(const [x,y] of parts(target,b)){
+
+        const k=key(x,y);
+
+        if(!owned(x,y))continue;
+
+        queue.push(k);
+
+        parent.set(k,null);
+    }
+
+    let destination=null;
+
+    // Find a short route through owned land.
+
+    for(let i=0;i<queue.length;i++){
+
+        const k=queue[i];
+
+        if(sourceTiles.has(k)){
+
+            destination=k;
+
+            break;
+        }
+
+        const [x,y]=xy(k);
+
+        for(const [a,b] of D){
+
+            const nx=x+a;
+            const ny=y+b;
+
+            const n=key(nx,ny);
+
+            if(
+                !inside(nx,ny)||
+                !owned(nx,ny)||
+                terrain(nx,ny)==='water'||
+                parent.has(n)
+            )continue;
+
+            parent.set(n,k);
+
+            queue.push(n);
+        }
+    }
+
+    if(destination===null)return [];
+
+    const route=[];
+
+    let current=destination;
+
+    while(current!==null){
+
+        route.push(current);
+
+        current=parent.get(current);
+    }
+
+    return route.reverse();
+}
+
+function connectUtility(target,l){
+
+    const route=utilityRoute(target,l);
+
+    if(!route.length){
+
+        message(
+            'No reachable utility source. '+
+            'Build a facility on connected owned land.'
+        );
+
+        return;
+    }
+
+    const net=state.net[l];
+
+    const missing=route.filter(
+        k=>!net[k]
+    );
+
+    if(!missing.length){
+
+        message(
+            'Route already installed. '+
+            'Check remaining utility capacity.'
+        );
+
+        return;
+    }
+
+    const cost=missing.length*
+        layers[l].cost;
+
+    if(town.cash<cost){
+
+        message(
+            'Connection requires '+money(cost)
+        );
+
+        return;
+    }
+
+    if(!confirm(
+        'Install '+missing.length+
+        ' '+layers[l].name+
+        ' segments for '+money(cost)+'?'
+    ))return;
+
+    town.cash-=cost;
+
+    for(const k of missing){
+
+        net[k]=true;
+    }
+
+    changed(
+        'Utility connection installed.',
+        true
+    );
+}
+
+
+// ==========================================
+// 07 — LIVE UTILITY STATUS MAP
+// ==========================================
+
+render=function(){
+
+    previous.render();
+
+    if(
+        !utilityOverlay||
+        layer!=='surface'||
+        !report
+    )return;
+
+    ctx.save();
+
+    ctx.setTransform(
+        DPR,0,0,DPR,0,0
+    );
+
+    ctx.translate(camX,camY);
+
+    ctx.scale(zoom,zoom);
+
+    for(const [k,b] of
+        Object.entries(town.buildings)
+    ){
+
+        const need=demand(b);
+
+        if(!need)continue;
+
+        const [x,y]=xy(k);
+
+        const [sx,sy]=project(
+            x+((b.w||1)-1)/2,
+            y+((b.h||1)-1)/2
+        );
+
+        const screenX=sx*zoom+camX;
+        const screenY=sy*zoom+camY;
+
+        if(
+            screenX<-100||
+            screenX>W+100||
+            screenY<-100||
+            screenY>H+100
+        )continue;
+
+        ctx.save();
+
+        ctx.translate(sx,sy-15);
+
+        ctx.fillStyle='#233a36dc';
+
+        ctx.fillRect(-21,-9,42,18);
+
+        const codes=['E','W','S'];
+
+        for(let i=0;i<3;i++){
+
+            const supplied=
+                report.nets[i].status[k]||0;
+
+            const ok=supplied>=need;
+
+            const x=-14+i*14;
+
+            disc(
+                x,0,5.5,5.5,
+                ok?'#78bf76':'#db7868'
+            );
+
+            ctx.font='bold 7px sans-serif';
+
+            ctx.textAlign='center';
+
+            ctx.fillStyle='#ffffff';
+
+            ctx.fillText(codes[i],x,2.5);
+        }
+
+        ctx.restore();
+    }
+
+    ctx.restore();
+};
+
+
+// ==========================================
+// 08 — ECONOMY DASHBOARD INTERFACE
+// ==========================================
+
+function node(tag,text,parent){
+
+    const e=document.createElement(tag);
+
+    if(text!==undefined){
+
+        e.textContent=text;
+    }
+
+    if(parent)parent.append(e);
+
+    return e;
+}
+
+function control(text,fn,parent){
+
+    const b=node('button',text,parent);
+
+    b.onclick=fn;
+
+    return b;
+}
+
+function stat(parent,label,value){
+
+    const r=node('div',undefined,parent);
+
+    r.className='v10row';
+
+    node('span',label,r);
+
+    node('strong',String(value),r);
+
+    return r;
+}
+
+const economy=node(
+    'section',
+    undefined,
+    document.body
+);
+
+economy.id='v10economy';
+
+economy.hidden=true;
+
+const economyButton=control(
+    'Market & Utilities',
+    ()=>{
+
+        panel.hidden=true;
+
+        economy.hidden=false;
+
+        refreshEconomy();
+    },
+    $('v7tools')
+);
+
+economyButton.className='v10launch';
+
+function heading(text){
+
+    node('h3',text,economy);
+}
+
+function description(text){
+
+    node('p',text,economy);
+}
+
+function refreshEconomy(){
+
+    if(economy.hidden||!report)return;
+
+    const scroll=economy.scrollTop;
+
+    economy.replaceChildren();
+
+    const header=node(
+        'div',undefined,economy
+    );
+
+    header.className='v10header';
+
+    node(
+        'strong',
+        'Town economy',
+        header
+    );
+
+    control(
+        'Close ×',
+        ()=>economy.hidden=true,
+        header
+    );
+
+    stat(
+        economy,
+        'Available cash',
+        money(town.cash)
+    );
+
+    stat(
+        economy,
+        'Earned gold',
+        town.gold
+    );
+
+    const nav=node(
+        'div',undefined,economy
+    );
+
+    nav.className='v10nav';
+
+    for(const [id,label] of [
+
+        ['market','Marketplace'],
+        ['finance','Finances'],
+        ['utilities','Utilities'],
+        ['guide','How to play']
+
+    ]){
+
+        const b=control(
+            label,
+            ()=>{
+
+                currentTab=id;
+
+                refreshEconomy();
+            },
+            nav
+        );
+
+        if(currentTab===id){
+
+            b.className='v10active';
+        }
+    }
+
+    if(currentTab==='market'){
+
+        heading('Your warehouse');
+
+        stat(
+            economy,
+            'Total stock value',
+            money(warehouseValue())
+        );
+
+        stat(
+            economy,
+            'Lifetime market sales',
+            money(E.revenue)
+        );
+
+        const goods=Object.entries(
+            state.stock
+        ).filter(([,n])=>n>0);
+
+        goods.sort(
+            (a,b)=>a[0].localeCompare(b[0])
+        );
+
+        if(!goods.length){
+
+            description(
+                'Your warehouse is empty. '+
+                'Harvest crops, raise livestock, '+
+                'manufacture products or send fishing boats out.'
+            );
+        }
+
+        for(const [name,quantity] of goods){
+
+            const card=node(
+                'div',undefined,economy
+            );
+
+            card.className='v10good';
+
+            stat(
+                card,
+                name+' × '+quantity,
+                money(goodsPrice(name))+'/unit'
+            );
+
+            const buttons=node(
+                'div',undefined,card
+            );
+
+            buttons.className='v10actions';
+
+            control(
+                'Sell 1',
+                ()=>sellGoods(name,1),
+                buttons
+            );
+
+            control(
+                'Sell 10',
+                ()=>sellGoods(name,10),
+                buttons
+            );
+
+            control(
+                'Sell all',
+                ()=>sellGoods(name,quantity),
+                buttons
+            );
+
+            const label=node(
+                'label',undefined,card
+            );
+
+            const check=node(
+                'input',undefined,label
+            );
+
+            check.type='checkbox';
+
+            check.checked=!!E.autoSales[name];
+
+            check.onchange=()=>{
+
+                E.autoSales[name]=check.checked;
+
+                save();
+            };
+
+            label.append(
+                ' Auto-sell surplus, keep 10 units'
+            );
+        }
+
+        if(goods.length){
+
+            control(
+                'Sell entire warehouse',
+                sellWarehouse,
+                economy
+            );
+        }
+
+    }else if(currentTab==='finance'){
+
+        heading('Town finances');
+
+        stat(
+            economy,
+            'Gross income / 10 seconds',
+            money(report.gross)
+        );
+
+        stat(
+            economy,
+            'Operating costs / 10 seconds',
+            money(report.expenses)
+        );
+
+        stat(
+            economy,
+            'Net income / 10 seconds',
+            money(report.net)
+        );
+
+        stat(
+            economy,
+            'Happiness',
+            report.happiness+'%'
+        );
+
+        stat(
+            economy,
+            'Local tax',
+            state.tax+'%'
+        );
+
+        stat(
+            economy,
+            'Housing capacity',
+            report.pop
+        );
+
+        stat(
+            economy,
+            'Jobs filled',
+            report.employed+
+                ' / '+report.jobs
+        );
+
+        stat(
+            economy,
+            'Visitor activity',
+            report.visitors
+        );
+
+        heading('Basic property income');
+
+        const income={};
+
+        for(const b of
+            Object.values(town.buildings)
+        ){
+
+            const t=TYPES[b.type];
+
+            if(!t)continue;
+
+            if(fieldCrop[bare(b.type)])continue;
+
+            const group=t.group||'Other';
+
+            income[group]=
+                (income[group]||0)+
+                (t.rent||0);
+        }
+
+        for(const [group,n] of
+            Object.entries(income)
+        ){
+
+            stat(
+                economy,group,money(n)
+            );
+        }
+
+        description(
+            'Property income above is before '+
+            'tax, utility penalties, expenses '+
+            'and tourism adjustments.'
+        );
+
+    }else if(currentTab==='utilities'){
+
+        heading('Infrastructure overview');
+
+        for(let i=0;i<3;i++){
+
+            const l=utilityTypes[i];
+
+            const n=report.nets[i];
+
+            const card=node(
+                'div',undefined,economy
+            );
+
+            card.className='v10good';
+
+            node(
+                'strong',
+                utilityLabels[i],
+                card
+            );
+
+            stat(
+                card,
+                'Installed capacity',
+                n.installed
+            );
+
+            stat(
+                card,
+                'Connected capacity',
+                n.connected
+            );
+
+            stat(
+                card,
+                'Supplied / required',
+                n.served+' / '+n.need
+            );
+
+            const progress=node(
+                'progress',undefined,card
+            );
+
+            progress.max=
+                Math.max(1,n.need);
+
+            progress.value=
+                n.need?n.served:1;
+
+            control(
+                'Build '+layers[l].name,
+                ()=>{
+
+                    economy.hidden=true;
+
+                    setLayer(l);
+
+                    selectMode('build');
+                },
+                card
+            );
+        }
+
+        control(
+            utilityOverlay
+                ?'Hide connection indicators'
+                :'Show connection indicators',
+            ()=>{
+
+                utilityOverlay=!utilityOverlay;
+
+                dirty=true;
+
+                refreshEconomy();
+            },
+            economy
+        );
+
+        description(
+            'Green means supplied. Red means '+
+            'a shortage or missing connection. '+
+            'E = electricity, W = water, S = sewage.'
+        );
+
+        const b=
+            inspected&&
+            town.buildings[inspected];
+
+        if(b&&demand(b)){
+
+            heading(
+                'Connect '+title(b.type)
+            );
+
+            stat(
+                economy,
+                'Road access',
+                roadAccess(inspected,b)
+                    ?'Connected'
+                    :'Missing'
+            );
+
+            const k=inspected;
+
+            for(let i=0;i<3;i++){
+
+                const l=utilityTypes[i];
+
+                const supplied=
+                    report.nets[i]
+                        .status[k]||0;
+
+                stat(
+                    economy,
+                    utilityLabels[i],
+                    supplied+' / '+demand(b)
+                );
+
+                if(supplied<demand(b)){
+
+                    control(
+                        'Connect '+utilityLabels[i],
+                        ()=>connectUtility(k,l),
+                        economy
+                    );
+                }
+            }
+
+        }else{
+
+            description(
+                'Inspect a property, then open '+
+                'Market & Utilities to connect it automatically.'
+            );
+        }
+
+    }else{
+
+        heading('Making money');
+
+        description(
+            'Houses and shops earn regular income. '+
+            'Construct farms and harvest their crops '+
+            'to fill your warehouse.'
+        );
+
+        description(
+            'Factories process stored ingredients. '+
+            'Wheat can become flour and then bread. '+
+            'Sell the finished goods through the marketplace.'
+        );
+
+        description(
+            'Inspect a fishing harbour to send a boat '+
+            'to sea. Use a shipping port to import '+
+            'materials or export finished goods.'
+        );
+
+        heading('Building infrastructure');
+
+        description(
+            'Build a power station, water tower and '+
+            'sewage works. Use the Utilities tab to '+
+            'lay underground connections or connect an '+
+            'inspected property automatically.'
+        );
+
+        heading('Original artwork');
+
+        description(
+            artworkReady
+                ?'Illustrated building assets loaded successfully.'
+                :'Illustrated asset file not loaded. '+
+                 'Existing artwork is being used.'
+        );
+    }
+
+    economy.scrollTop=scroll;
+}
+
+
+// ==========================================
+// 09 — KEEP THE MARKET UPDATED
+// ==========================================
+
+changed=function(msg='',topology=false){
+
+    previous.changed(msg,topology);
+
+    refreshEconomy();
+};
+
+
+// ==========================================
+// 10 — ADD MARKET ACHIEVEMENTS
+// ==========================================
+
+awards.push(
+
+    [
+        'v10market100',
+        'Local market trader',
+        ()=>E.sales>=100,
+        8
+    ],
+
+    [
+        'v10market500',
+        'Commercial entrepreneur',
+        ()=>E.sales>=500,
+        15
+    ],
+
+    [
+        'v10market5000',
+        'Thriving local economy',
+        ()=>E.revenue>=5000,
+        12
+    ]
+);
+
+
+// ==========================================
+// 11 — POLISHED GAME INTERFACE
+// ==========================================
+
+const css=node(
+    'style',
+    undefined,
+    document.head
+);
+
+css.textContent=`
+
+#v10economy{
+    position:absolute;
+    top:78px;
+    right:12px;
+    z-index:40;
+
+    width:min(
+        390px,
+        calc(100vw - 30px)
+    );
+
+    max-height:calc(100dvh - 180px);
+
+    overflow:auto;
+
+    padding:14px;
+
+    background:
+        linear-gradient(
+            #fff9e8,
+            #efe0bd
+        );
+
+    color:#5e4935;
+
+    border:2px solid #a58a61;
+
+    border-radius:16px;
+
+    box-shadow:
+        0 5px 0 #94754e,
+        0 12px 28px #283d3844;
+
+    font-size:12px;
+}
+
+#v10economy[hidden]{
+    display:none;
+}
+
+#v10economy h3{
+    font-size:14px;
+    margin:14px 0 8px;
+    color:#4c704c;
+}
+
+#v10economy p{
+    line-height:1.5;
+    color:#776349;
+    font-size:11px;
+}
+
+#v10economy button{
+    background:#e2d2b0;
+
+    border:1px solid #bda481;
+
+    border-radius:7px;
+
+    color:#634c36;
+
+    padding:6px 9px;
+
+    margin:3px;
+
+    cursor:pointer;
+
+    font:inherit;
+
+    font-weight:700;
+}
+
+#v10economy button:hover{
+    background:#f5e9c8;
+}
+
+#v10economy .v10active{
+    background:#9ac58c;
+
+    border-color:#7da677;
+
+    color:#315536;
+}
+
+.v10header{
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    margin-bottom:9px;
+}
+
+.v10header strong{
+    font-size:17px;
+}
+
+.v10row{
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    gap:8px;
+
+    padding:5px 0;
+}
+
+.v10nav,
+.v10actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:3px;
+}
+
+.v10nav{
+    margin:8px 0;
+}
+
+.v10good{
+    background:#fff9e9;
+
+    border:1px solid #d4be98;
+
+    padding:10px;
+
+    border-radius:10px;
+
+    margin:7px 0;
+}
+
+.v10good label{
+    display:flex;
+
+    align-items:center;
+
+    gap:6px;
+
+    font-size:11px;
+
+    padding-top:6px;
+
+    color:#56744e;
+}
+
+#v10economy progress{
+    width:100%;
+
+    height:13px;
+
+    accent-color:#83b775;
+}
+
+#v7tools .v10launch{
+    background:#7caea8;
+
+    color:#ffffff;
+
+    border-color:#63958f;
+}
+
+#catalogue .item canvas{
+    image-rendering:auto;
+}
+
+#catalogue .item{
+    transition:background .15s;
+}
+
+#catalogue .item:hover{
+    background:#fff6d5;
+}
+
+@media(max-height:480px){
+
+    #v10economy{
+        top:45px;
+
+        max-height:
+            calc(100dvh - 70px);
+    }
+}
+
+`;
+
+
+// ==========================================
+// 12 — ACTIVATE VERSION 0.10
+// ==========================================
+
+atlas.src='./town-buildings-atlas.webp';
+
+dirty=true;
+
+console.log(
+    'Town Builder V0.10 loaded'
+);
+
+})();
+
+/* END OF V0.10 */
+
+
 /* END OF V0.9 — COASTAL WORLD */
 
    
