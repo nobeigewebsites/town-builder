@@ -1,0 +1,2000 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1">
+
+<title>Town Builder V1.0 — Landscaping</title>
+
+<style>
+
+*{box-sizing:border-box}
+
+body{
+ margin:0;
+ background:#101e18;
+ color:#edf4e9;
+ font-family:Arial,sans-serif;
+}
+
+header{
+ padding:18px;
+ background:#1b3024;
+ border-bottom:1px solid #405747;
+}
+
+h1{
+ font-size:22px;
+ color:#c2e3a4;
+ margin:0 0 8px;
+}
+
+h2{
+ font-size:16px;
+ color:#c6dfb7;
+ margin:0 0 12px;
+}
+
+h3{font-size:15px}
+
+.muted{
+ font-size:13px;
+ color:#abc0ac;
+ line-height:1.6;
+}
+
+.stats,.toolbar{
+ display:flex;
+ flex-wrap:wrap;
+ gap:8px;
+ margin:10px 0;
+}
+
+.stat{
+ background:#294335;
+ border:1px solid #45614b;
+ border-radius:8px;
+ padding:10px 14px;
+ font-size:14px;
+}
+
+.stat strong{
+ display:block;
+ font-size:20px;
+ margin-top:4px;
+}
+
+.workspace{
+ display:grid;
+ grid-template-columns:250px minmax(0,1fr);
+ gap:12px;
+ padding:12px;
+}
+
+.panel{
+ min-width:0;
+ background:#1b2e24;
+ border:1px solid #405747;
+ border-radius:12px;
+ padding:14px;
+}
+
+button,select,input{
+ font:inherit;
+ padding:10px;
+ color:#eff6e9;
+ background:#304b38;
+ border:1px solid #4c694e;
+ border-radius:8px;
+}
+
+button{cursor:pointer}
+button:hover{filter:brightness(1.15)}
+
+button:disabled{
+ opacity:.4;
+ cursor:default;
+}
+
+select,input,.wide{
+ width:100%;
+}
+
+.wide{margin:6px 0}
+
+label{
+ display:block;
+ font-size:13px;
+ color:#b9ceb9;
+ margin:12px 0 6px;
+}
+
+.confirm{background:#488f50}
+.cancel{background:#934a43}
+.rotate{background:#365b83}
+
+.valid{color:#b2e99f}
+.invalid{color:#ffaaa0}
+.warning{color:#e9c775}
+
+.hidden{display:none!important}
+
+.section{
+ background:#263e2e;
+ border-radius:9px;
+ padding:12px;
+ margin:10px 0;
+}
+
+.actions{
+ display:grid;
+ grid-template-columns:repeat(3,1fr);
+ gap:8px;
+ margin:10px 0;
+}
+
+canvas{
+ display:block;
+ width:100%;
+ height:auto;
+ border-radius:8px;
+ background:#9abb7d;
+ touch-action:manipulation;
+ cursor:crosshair;
+}
+
+.bottom{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:12px;
+ padding:0 12px 12px;
+}
+
+table{
+ width:100%;
+ border-collapse:collapse;
+ font-size:13px;
+}
+
+th,td{
+ padding:9px 5px;
+ text-align:left;
+ border-bottom:1px solid #405747;
+}
+
+.test{
+ display:flex;
+ justify-content:space-between;
+ gap:10px;
+ padding:9px 0;
+ border-bottom:1px solid #405747;
+ font-size:13px;
+}
+
+.test-panel{
+ margin:0 12px 12px;
+}
+
+a{color:#b9e0a6}
+
+footer{
+ padding:16px;
+ font-size:13px;
+}
+
+@media(max-width:720px){
+
+ .workspace,.bottom{
+  grid-template-columns:1fr;
+ }
+
+ .actions button{
+  padding:10px 4px;
+  font-size:12px;
+ }
+
+}
+
+</style>
+
+</head>
+<body>
+
+<header>
+
+<h1>Town Builder V1.0</h1>
+
+<div class="muted">
+ Development Workspace — Landscaping & Wildlife
+</div>
+
+<div class="stats">
+
+ <div class="stat">
+  Town funds
+  <strong id="cash"></strong>
+ </div>
+
+ <div class="stat">
+  Landscaping items
+  <strong id="itemCount"></strong>
+ </div>
+
+ <div class="stat">
+  Habitats
+  <strong id="habitatCount"></strong>
+ </div>
+
+ <div class="stat">
+  Decorative animals
+  <strong id="animalCount"></strong>
+ </div>
+
+</div>
+
+</header>
+
+<div class="workspace">
+
+<aside class="panel">
+
+<h2>Landscaping tools</h2>
+
+<label for="mode">Action</label>
+
+<select id="mode">
+ <option value="place">Place landscaping</option>
+ <option value="habitat">Create animal habitat</option>
+ <option value="inspect">Inspect landscape</option>
+ <option value="remove">Remove landscaping</option>
+</select>
+
+<div id="itemTools">
+
+ <label for="category">Category</label>
+
+ <select id="category">
+  <option>Trees</option>
+  <option>Plants</option>
+  <option>Gardens</option>
+  <option>Decorations</option>
+  <option>Fences</option>
+ </select>
+
+ <label for="item">Choose item</label>
+
+ <select id="item"></select>
+
+ <p id="itemInfo" class="muted"></p>
+
+</div>
+
+<div id="habitatTools" class="hidden">
+
+ <label for="habitatKind">Habitat type</label>
+
+ <select id="habitatKind">
+  <option value="paddock">Horse paddock</option>
+  <option value="meadow">Wildlife meadow</option>
+  <option value="garden">Garden wildlife</option>
+  <option value="pond">Pond wildlife</option>
+ </select>
+
+ <p class="muted">
+  Paddocks require a complete fence
+  boundary and at least one farm gate.
+  Pond habitats require water tiles.
+ </p>
+
+</div>
+
+<h3>Display controls</h3>
+
+<button id="overlay" class="wide">
+ Hide habitat outlines
+</button>
+
+<button id="animation" class="wide">
+ Pause animal movement
+</button>
+
+<button id="reset" class="wide cancel">
+ Reset test landscape
+</button>
+
+</aside>
+
+<section class="panel">
+
+<h2>Landscape designer</h2>
+
+<div class="toolbar">
+
+ <button id="single">
+  Single tile
+ </button>
+
+ <button id="area">
+  Area / fence line
+ </button>
+
+ <button id="manage">
+  Manage animals
+ </button>
+
+</div>
+
+<p id="message" class="valid"></p>
+
+<div id="placement" class="section">
+
+ <div id="placementInfo"></div>
+
+ <div class="actions">
+
+  <button id="cancel" class="cancel">
+   ✕ Cancel
+  </button>
+
+  <button id="bend" class="rotate">
+   ↱ Change bend
+  </button>
+
+  <button id="confirm" class="confirm">
+   ✓ Confirm
+  </button>
+
+ </div>
+
+</div>
+
+<div id="animalPanel" class="section">
+
+ <h3>Animal habitat management</h3>
+
+ <label for="habitat">Select habitat</label>
+
+ <select id="habitat"></select>
+
+ <p id="habitatInfo" class="muted"></p>
+
+ <label for="animal">Choose decorative animal</label>
+
+ <select id="animal"></select>
+
+ <label for="quantity">Quantity</label>
+
+ <input id="quantity"
+        type="number"
+        min="1" max="100" value="1">
+
+ <p id="animalInfo" class="muted"></p>
+
+ <div class="toolbar">
+
+  <button id="addAnimals" class="confirm">
+   Add animals
+  </button>
+
+  <button id="clearAnimals">
+   Remove animals
+  </button>
+
+  <button id="removeHabitat" class="cancel">
+   Remove habitat
+  </button>
+
+ </div>
+
+ <p class="muted">
+  Decorative animals have no feeding costs,
+  maintenance or production requirements.
+ </p>
+
+</div>
+
+<canvas id="map"
+        width="1000"
+        height="700"></canvas>
+
+<p class="muted">
+ Single tile: tap one tile and confirm.
+ Area mode: tap two opposite corners.
+ Fences use connected lines.
+ Use Inspect to select an existing habitat.
+</p>
+
+</section>
+</div>
+
+<div class="bottom">
+
+<section class="panel">
+
+<h2>Animal activity</h2>
+
+<table>
+
+<thead>
+ <tr>
+  <th>Animal</th>
+  <th>Habitat</th>
+  <th>Activity</th>
+ </tr>
+</thead>
+
+<tbody id="animals"></tbody>
+
+</table>
+
+</section>
+
+<section class="panel">
+
+<h2>Landscape information</h2>
+
+<div id="inspection">
+ Select Inspect landscape, then tap the map.
+</div>
+
+<p class="muted">
+ Attractive landscaping contributes a
+ local beauty score of up to 10 points.
+ This will later connect to resident happiness.
+</p>
+
+</section>
+
+</div>
+
+<section class="panel test-panel">
+
+<h2>Landscaping engine tests</h2>
+
+<div id="tests"></div>
+
+<h3 id="summary"></h3>
+
+</section>
+
+<footer>
+
+<a href="./v1-progression.html">Research</a>
+&nbsp; | &nbsp;
+<a href="./v1-simulation.html">Population</a>
+&nbsp; | &nbsp;
+<a href="./v1-economy.html">Economy</a>
+&nbsp; | &nbsp;
+<a href="./v1-farming.html">Farming</a>
+&nbsp; | &nbsp;
+<a href="./index.html">Existing game</a>
+
+</footer>
+
+<script src="./js/engine.js"></script>
+<script src="./js/landscaping.js"></script>
+
+<script>
+
+(() => {
+
+'use strict';
+
+const $=id=>document.getElementById(id);
+
+const ITEMS=TownLandscapeItems;
+const ANIMALS=TownDecorativeAnimals;
+
+const canvas=$('map');
+const ctx=canvas.getContext('2d');
+
+const WIDTH=20;
+const HEIGHT=14;
+const SIZE=50;
+
+const P=(x,y)=>({x,y});
+
+const money=n=>'£'+n.toLocaleString('en-GB');
+
+const NAMES={
+ paddock:'Horse paddock',
+ meadow:'Wildlife meadow',
+ garden:'Garden wildlife',
+ pond:'Pond wildlife'
+};
+
+let town,land;
+
+let start=null;
+let end=null;
+
+let area=false;
+let xFirst=true;
+let outlines=true;
+let animated=true;
+let selectedHabitat=null;
+let selectedAnimalHabitat=null;
+let inspected=null;
+
+let message='';
+let messageOK=true;
+
+// ==========================================
+// INTERFACE HELPERS
+// ==========================================
+
+function option(select,value,label){
+
+ const o=document.createElement('option');
+
+ o.value=value;
+ o.textContent=label;
+
+ select.appendChild(o);
+
+}
+
+function hide(id,value){
+
+ $(id).classList.toggle('hidden',value);
+
+}
+
+function notice(text,ok=true){
+
+ message=text;
+ messageOK=ok;
+
+}
+
+function clearPlan(){
+
+ start=null;
+ end=null;
+
+}
+
+function show(r,text){
+
+ notice(
+  r.ok?text:r.reason,
+  r.ok
+ );
+
+ if(r.ok)clearPlan();
+
+ update();
+
+}
+
+// ==========================================
+// CREATE THE STARTER PADDOCK
+// ==========================================
+
+function buildPaddock(l){
+
+ const routes=[
+
+  [P(6,2),P(7,2)],
+  [P(9,2),P(11,2)],
+  [P(6,2),P(6,7)],
+  [P(11,2),P(11,7)],
+  [P(6,7),P(11,7)]
+
+ ];
+
+ for(const [a,b] of routes){
+
+  l.build('woodFence',a,b);
+
+ }
+
+ l.build('farmGate',P(8,2));
+
+ return l.createHabitat(
+  'paddock',P(7,3),P(10,6)
+ );
+
+}
+
+// ==========================================
+// CREATE THE STARTER WORLD
+// ==========================================
+
+function fixture(){
+
+ const t=new TownEngine({
+  width:WIDTH,
+  height:HEIGHT,
+  cash:15000
+ });
+
+ const l=new TownLandscaping(t);
+
+ return {t,l};
+
+}
+
+function reset(ask=false){
+
+ if(
+  ask&&
+  !confirm('Reset the test landscape?')
+ )return;
+
+ const w=fixture();
+
+ town=w.t;
+ land=w.l;
+
+ // Decorative garden
+
+ land.build('lavenderBed',P(1,3),P(4,4));
+
+ land.build('rose',P(1,5),P(4,5));
+
+ const garden=land.createHabitat(
+  'garden',P(1,3),P(4,5)
+ );
+
+ if(garden.ok){
+
+  land.addAnimals(
+   garden.habitat.id,'butterfly',2
+  );
+
+  land.addAnimals(
+   garden.habitat.id,'bird',1
+  );
+
+ }
+
+ // Horse paddock
+
+ const paddock=buildPaddock(land);
+
+ if(paddock.ok){
+
+  const id=paddock.habitat.id;
+
+  land.addAnimals(id,'horse',1);
+
+  land.addAnimals(id,'greyHorse',1);
+
+  land.addAnimals(id,'foal',1);
+
+  selectedHabitat=id;
+
+ }
+
+ // Wildlife pond
+
+ for(let y=3;y<=6;y++){
+
+  for(let x=14;x<=17;x++){
+
+   town.setTerrain(x,y,'water');
+
+  }
+
+ }
+
+ const pond=land.createHabitat(
+  'pond',P(14,3),P(17,6)
+ );
+
+ if(pond.ok){
+
+  land.addAnimals(
+   pond.habitat.id,'swan',2
+  );
+
+ }
+
+ // Additional scenery
+
+ land.build('oak',P(2,1));
+ land.build('cherry',P(4,1));
+ land.build('willow',P(13,7));
+ land.build('pine',P(18,2));
+ land.build('fountain',P(3,8));
+ land.build('bench',P(4,8));
+
+ clearPlan();
+
+ selectedAnimalHabitat=null;
+ inspected=null;
+
+ area=false;
+ xFirst=true;
+ outlines=true;
+ animated=true;
+
+ $('mode').value='place';
+
+ $('category').value='Trees';
+
+ populateItems();
+
+ $('inspection').textContent=
+  'Select Inspect landscape, then tap the map.';
+
+ notice(
+  'Starter gardens and wildlife are ready.'
+ );
+
+ update();
+
+}
+
+// ==========================================
+// LANDSCAPING CATALOGUE
+// ==========================================
+
+function populateItems(){
+
+ const category=$('category').value;
+
+ $('item').replaceChildren();
+
+ for(const [id,d] of Object.entries(ITEMS)){
+
+  if(d.category===category){
+
+   option(
+    $('item'),id,d.icon+' '+d.name
+   );
+
+  }
+
+ }
+
+}
+
+$('category').onchange=()=>{
+
+ populateItems();
+
+ clearPlan();
+
+ update();
+
+};
+
+$('item').onchange=()=>{
+
+ clearPlan();
+
+ update();
+
+};
+
+$('habitatKind').onchange=()=>{
+
+ clearPlan();
+
+ update();
+
+};
+
+$('mode').onchange=()=>{
+
+ clearPlan();
+
+ if($('mode').value==='habitat')
+  area=true;
+
+ update();
+
+};
+
+$('single').onclick=()=>{
+
+ $('mode').value='place';
+
+ area=false;
+
+ clearPlan();
+
+ update();
+
+};
+
+$('area').onclick=()=>{
+
+ area=true;
+
+ if(
+  $('mode').value==='inspect'||
+  $('mode').value==='remove'
+ )$('mode').value='place';
+
+ clearPlan();
+
+ update();
+
+};
+
+$('manage').onclick=()=>{
+
+ $('mode').value='inspect';
+
+ clearPlan();
+
+ $('animalPanel').scrollIntoView({
+  behavior:'smooth',
+  block:'nearest'
+ });
+
+ update();
+
+};
+
+// ==========================================
+// SELECTION PREVIEW
+// ==========================================
+
+function plan(){
+
+ const mode=$('mode').value;
+
+ if(!start)return null;
+
+ if(mode==='place'){
+
+  return land.preview(
+   $('item').value,
+   start,end||start,xFirst
+  );
+
+ }
+
+ if(mode==='habitat'){
+
+  return land.habitatPreview(
+   $('habitatKind').value,
+   start,end||start
+  );
+
+ }
+
+ if(mode==='remove'){
+
+  const item=land.itemAt(start.x,start.y);
+
+  return {
+   ok:!!item,
+   reason:'No landscaping item selected',
+   cells:[start],
+   cost:0
+  };
+
+ }
+
+ return null;
+
+}
+
+$('confirm').onclick=()=>{
+
+ const p=plan();
+
+ if(!p?.ok)return;
+
+ const mode=$('mode').value;
+
+ let result;
+
+ if(mode==='place'){
+
+  result=land.build(
+   $('item').value,
+   start,end||start,xFirst
+  );
+
+  show(
+   result,
+   'Landscaping installed for '+
+   money(result.cost||0)+'.'
+  );
+
+ }else if(mode==='habitat'){
+
+  result=land.createHabitat(
+   $('habitatKind').value,
+   start,end||start
+  );
+
+  if(result.ok)
+   selectedHabitat=result.habitat.id;
+
+  show(result,'Animal habitat created.');
+
+ }else if(mode==='remove'){
+
+  show(
+   land.remove(start.x,start.y),
+   'Landscaping removed.'
+  );
+
+ }
+
+};
+
+$('cancel').onclick=()=>{
+
+ clearPlan();
+
+ notice('Selection cancelled.');
+
+ update();
+
+};
+
+$('bend').onclick=()=>{
+
+ xFirst=!xFirst;
+
+ update();
+
+};
+
+// ==========================================
+// MAP INPUT
+// ==========================================
+
+function tileAt(event){
+
+ const r=canvas.getBoundingClientRect();
+
+ return {
+
+  x:Math.floor(
+   (event.clientX-r.left)*
+   canvas.width/r.width/SIZE
+  ),
+
+  y:Math.floor(
+   (event.clientY-r.top)*
+   canvas.height/r.height/SIZE
+  )
+
+ };
+
+}
+
+canvas.addEventListener('click',event=>{
+
+ const p=tileAt(event);
+
+ if(!town.inside(p.x,p.y))return;
+
+ const mode=$('mode').value;
+
+ if(mode==='inspect'){
+
+  inspected=p;
+
+  const h=land.habitatAt(p.x,p.y);
+
+  if(h)selectedHabitat=h.id;
+
+  notice('Landscape inspected.');
+
+ }else if(
+  mode==='remove'||
+  (!area&&mode==='place')
+ ){
+
+  start=p;
+  end=p;
+
+ }else{
+
+  if(!start||end){
+
+   start=p;
+   end=null;
+
+  }else{
+
+   end=p;
+
+  }
+
+ }
+
+ update();
+
+});
+
+// ==========================================
+// ANIMAL MANAGEMENT
+// ==========================================
+
+function renderHabitatMenu(){
+
+ const before=selectedHabitat;
+
+ $('habitat').replaceChildren();
+
+ for(const h of land.habitats.values()){
+
+  option(
+   $('habitat'),
+   h.id,
+   NAMES[h.kind]+' #'+h.id
+  );
+
+ }
+
+ if(land.habitats.has(before)){
+
+  $('habitat').value=String(before);
+
+ }else{
+
+  selectedHabitat=Number($('habitat').value);
+
+ }
+
+ const h=land.habitats.get(selectedHabitat);
+
+ if(selectedAnimalHabitat!==selectedHabitat){
+
+  $('animal').replaceChildren();
+
+  for(const [id,d] of Object.entries(ANIMALS)){
+
+   if(d.habitat===h?.kind){
+
+    option(
+     $('animal'),id,d.icon+' '+d.name
+    );
+
+   }
+
+  }
+
+  selectedAnimalHabitat=selectedHabitat;
+
+ }
+
+ if(!h){
+
+  $('animal').replaceChildren();
+
+  $('habitatInfo').textContent=
+   'Create an animal habitat first.';
+
+  $('animalInfo').textContent='';
+
+  $('addAnimals').disabled=true;
+  $('clearAnimals').disabled=true;
+  $('removeHabitat').disabled=true;
+
+  return;
+
+ }
+
+ const count=[...land.animals.values()]
+  .filter(a=>a.habitat===h.id).length;
+
+ const capacity=Math.max(
+  1,
+  Math.floor(
+   h.width*h.height/
+   (h.kind==='paddock'?4:2)
+  )
+ );
+
+ $('habitatInfo').textContent=
+
+  NAMES[h.kind]+' · '+
+  h.width+' × '+h.height+' tiles · '+
+  count+'/'+capacity+' animals';
+
+ const d=ANIMALS[$('animal').value];
+
+ const n=Number($('quantity').value);
+
+ const valid=
+  Number.isSafeInteger(n)&&
+  n>=1&&n<=100;
+
+ $('animalInfo').textContent=d&&valid
+
+  ?'Placement cost '+money(d.cost*n)+
+   ' · No ongoing costs'
+
+  :'Choose a valid quantity';
+
+ $('addAnimals').disabled=
+  !d||!valid||
+  count+n>capacity||
+  d.cost*n>town.cash;
+
+ $('clearAnimals').disabled=count===0;
+
+ $('removeHabitat').disabled=count>0;
+
+}
+
+$('habitat').onchange=()=>{
+
+ selectedHabitat=Number($('habitat').value);
+
+ update();
+
+};
+
+$('animal').onchange=renderHabitatMenu;
+
+$('quantity').oninput=renderHabitatMenu;
+
+$('addAnimals').onclick=()=>{
+
+ const r=land.addAnimals(
+  selectedHabitat,
+  $('animal').value,
+  Number($('quantity').value)
+ );
+
+ show(r,'Decorative animals added.');
+
+};
+
+$('clearAnimals').onclick=()=>{
+
+ if(!confirm(
+  'Remove all decorative animals from this habitat?'
+ ))return;
+
+ land.clearAnimals(selectedHabitat);
+
+ notice('Animals removed from the habitat.');
+
+ update();
+
+};
+
+$('removeHabitat').onclick=()=>{
+
+ if(!confirm('Remove this habitat?'))
+  return;
+
+ show(
+  land.removeHabitat(selectedHabitat),
+  'Habitat removed.'
+ );
+
+};
+
+// ==========================================
+// RENDER LAND AND WATER
+// ==========================================
+
+function ground(){
+
+ for(let y=0;y<HEIGHT;y++){
+
+  for(let x=0;x<WIDTH;x++){
+
+   const s=town.getTerrain(x,y);
+
+   ctx.fillStyle=
+
+    s==='water'
+     ?((x+y)%2?'#78b8ce':'#80bfd4')
+     :s==='soil'
+      ?'#a88b61'
+      :((x+y)%2?'#96b977':'#a0c17f');
+
+   ctx.fillRect(
+    x*SIZE,y*SIZE,SIZE,SIZE
+   );
+
+   ctx.strokeStyle='rgba(45,72,40,.15)';
+
+   ctx.lineWidth=1;
+
+   ctx.strokeRect(
+    x*SIZE,y*SIZE,SIZE,SIZE
+   );
+
+  }
+
+ }
+
+}
+
+// ==========================================
+// DRAW HABITAT BOUNDARIES
+// ==========================================
+
+function drawHabitats(){
+
+ if(!outlines)return;
+
+ for(const h of land.habitats.values()){
+
+  const x=h.x*SIZE;
+  const y=h.y*SIZE;
+  const w=h.width*SIZE;
+  const height=h.height*SIZE;
+
+  ctx.fillStyle=
+   h.kind==='pond'
+    ?'rgba(120,210,255,.14)'
+    :'rgba(215,255,157,.16)';
+
+  ctx.fillRect(x,y,w,height);
+
+  ctx.strokeStyle=
+   h.id===selectedHabitat
+    ?'#fff3ad':'#e3efd1';
+
+  ctx.lineWidth=
+   h.id===selectedHabitat?3:1.5;
+
+  ctx.setLineDash([8,5]);
+
+  ctx.strokeRect(
+   x+2,y+2,w-4,height-4
+  );
+
+  ctx.setLineDash([]);
+
+ }
+
+}
+
+// ==========================================
+// DRAW CONNECTING FENCES
+// ==========================================
+
+function drawFence(x,y,d){
+
+ const cx=x*SIZE+SIZE/2;
+ const cy=y*SIZE+SIZE/2;
+
+ const mask=land.fenceMask(x,y)||10;
+
+ const arms=[
+  [0,-1,1],
+  [1,0,2],
+  [0,1,4],
+  [-1,0,8]
+ ];
+
+ ctx.lineCap='round';
+
+ for(const [dx,dy,bit] of arms){
+
+  if(!(mask&bit))continue;
+
+  ctx.strokeStyle=d.color;
+
+  ctx.lineWidth=
+   d.id==='hedge'?18:
+   d.id==='stoneWall'?12:7;
+
+  ctx.beginPath();
+
+  ctx.moveTo(cx,cy);
+
+  ctx.lineTo(
+   cx+dx*SIZE/2,
+   cy+dy*SIZE/2
+  );
+
+  ctx.stroke();
+
+ }
+
+ ctx.fillStyle=d.color;
+
+ ctx.fillRect(cx-5,cy-5,10,10);
+
+ if(d.id==='farmGate'){
+
+  ctx.strokeStyle='#754d31';
+
+  ctx.lineWidth=2;
+
+  ctx.strokeRect(
+   cx-10,cy-9,20,18
+  );
+
+  ctx.beginPath();
+  ctx.moveTo(cx-10,cy-9);
+  ctx.lineTo(cx+10,cy+9);
+  ctx.stroke();
+
+ }
+
+}
+
+// ==========================================
+// DRAW LANDSCAPING ITEMS
+// ==========================================
+
+function drawItems(){
+
+ ctx.textAlign='center';
+ ctx.textBaseline='middle';
+
+ for(const b of town.buildings.values()){
+
+  const item=land.itemAt(b.x,b.y);
+
+  if(!item)continue;
+
+  const d=item.type;
+
+  if(d.fence){
+
+   drawFence(b.x,b.y,d);
+
+   continue;
+
+  }
+
+  const x=b.x*SIZE+SIZE/2;
+  const y=b.y*SIZE+SIZE/2;
+
+  ctx.fillStyle='rgba(32,56,28,.17)';
+
+  ctx.beginPath();
+  ctx.ellipse(x,y+11,15,6,0,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.font=d.category==='Trees'
+   ?'34px Arial'
+   :'27px Arial';
+
+  ctx.fillText(d.icon,x,y-2);
+
+ }
+
+}
+
+// ==========================================
+// DRAW DECORATIVE ANIMALS
+// ==========================================
+
+function drawAnimals(){
+
+ ctx.textAlign='center';
+ ctx.textBaseline='middle';
+
+ for(const a of land.animals.values()){
+
+  const d=ANIMALS[a.type];
+
+  const x=a.x*SIZE+SIZE/2;
+  const y=a.y*SIZE+SIZE/2;
+
+  ctx.fillStyle='rgba(35,58,35,.18)';
+
+  ctx.beginPath();
+  ctx.ellipse(x,y+10,11,4,0,0,Math.PI*2);
+  ctx.fill();
+
+  const size=
+
+   a.type==='foal'?19:
+
+   ['bird','butterfly','rabbit'].includes(a.type)
+    ?18:29;
+
+  ctx.font=size+'px Arial';
+
+  ctx.fillText(d.icon,x,y);
+
+  // Temporary colour marker for horse variants.
+
+  if(d.habitat==='paddock'){
+
+   ctx.fillStyle=d.color;
+
+   ctx.beginPath();
+   ctx.arc(x+14,y-12,4.5,0,Math.PI*2);
+   ctx.fill();
+
+   ctx.strokeStyle='#f4edd8';
+   ctx.lineWidth=1;
+   ctx.stroke();
+
+  }
+
+ }
+
+}
+
+// ==========================================
+// DRAW CONSTRUCTION PREVIEW
+// ==========================================
+
+function drawPreview(){
+
+ const p=plan();
+
+ if(!p?.cells)return;
+
+ for(const c of p.cells){
+
+  ctx.fillStyle=p.ok
+
+   ?'rgba(220,255,165,.35)'
+
+   :'rgba(255,90,80,.45)';
+
+  ctx.fillRect(
+   c.x*SIZE,c.y*SIZE,SIZE,SIZE
+  );
+
+  ctx.strokeStyle=p.ok
+   ?'#e7ffb5':'#ff786d';
+
+  ctx.lineWidth=3;
+
+  ctx.strokeRect(
+   c.x*SIZE+2,
+   c.y*SIZE+2,
+   SIZE-4,
+   SIZE-4
+  );
+
+ }
+
+}
+
+// ==========================================
+// COMPLETE MAP RENDER
+// ==========================================
+
+function render(){
+
+ ctx.clearRect(
+  0,0,canvas.width,canvas.height
+ );
+
+ ground();
+
+ drawHabitats();
+
+ drawItems();
+
+ drawAnimals();
+
+ drawPreview();
+
+}
+
+// ==========================================
+// ANIMAL ACTIVITY TABLE
+// ==========================================
+
+function renderAnimals(){
+
+ $('animals').replaceChildren();
+
+ for(const a of land.animals.values()){
+
+  const row=document.createElement('tr');
+
+  const d=ANIMALS[a.type];
+
+  const h=land.habitats.get(a.habitat);
+
+  for(const value of [
+
+   d.icon+' '+d.name,
+
+   NAMES[h.kind]+' #'+h.id,
+
+   a.status
+
+  ]){
+
+   const cell=document.createElement('td');
+
+   cell.textContent=value;
+
+   row.appendChild(cell);
+
+  }
+
+  $('animals').appendChild(row);
+
+ }
+
+}
+
+// ==========================================
+// INSPECTION INFORMATION
+// ==========================================
+
+function renderInspection(){
+
+ if(!inspected)return;
+
+ const {x,y}=inspected;
+
+ const item=land.itemAt(x,y);
+
+ const h=land.habitatAt(x,y);
+
+ const name=
+
+  item?.type.name||
+
+  NAMES[h?.kind]||
+
+  town.getTerrain(x,y);
+
+ $('inspection').textContent=
+
+  'Selected: '+name+
+
+  ' | Tile '+x+', '+y+
+
+  ' | Local beauty score: '+
+
+  land.beautyAt(x,y)+'/10';
+
+}
+
+// ==========================================
+// REFRESH WORKSPACE
+// ==========================================
+
+function update(){
+
+ const mode=$('mode').value;
+
+ hide('itemTools',mode!=='place');
+
+ hide('habitatTools',mode!=='habitat');
+
+ hide('placement',mode==='inspect');
+
+ const item=ITEMS[$('item').value];
+
+ if(item){
+
+  $('itemInfo').textContent=
+
+   money(item.cost)+' per tile'+
+
+   (
+    item.fence
+     ?' · Automatically connecting'
+     :' · Beauty contribution '+item.beauty
+   );
+
+ }
+
+ const p=plan();
+
+ const waitingForEnd=
+
+  (mode==='habitat'||(area&&mode==='place'))&&
+
+  start&&!end;
+
+ $('placementInfo').textContent=
+
+  waitingForEnd
+
+   ?'Choose the opposite corner or line endpoint.'
+
+   :!p
+
+    ?'Choose a starting tile.'
+
+    :p.ok
+
+     ?(p.cells?.length||0)+
+      ' tiles · Cost '+money(p.cost||0)
+
+     :p.reason;
+
+ $('placementInfo').className=
+
+  !p||p.ok||waitingForEnd
+   ?'valid':'invalid';
+
+ $('confirm').disabled=
+
+  !p?.ok||!!waitingForEnd;
+
+ $('cancel').disabled=!start;
+
+ $('bend').disabled=
+
+  mode!=='place'||
+  !item?.fence||
+  !area;
+
+ $('cash').textContent=money(town.cash);
+
+ $('itemCount').textContent=
+
+  [...town.buildings.values()]
+   .filter(b=>b.type.startsWith('land_')).length;
+
+ $('habitatCount').textContent=
+  land.habitats.size;
+
+ $('animalCount').textContent=
+  land.animals.size;
+
+ $('overlay').textContent=
+
+  outlines
+   ?'Hide habitat outlines'
+   :'Show habitat outlines';
+
+ $('animation').textContent=
+
+  animated
+   ?'Pause animal movement'
+   :'Resume animal movement';
+
+ $('single').textContent=
+
+  !area?'✓ Single tile':'Single tile';
+
+ $('area').textContent=
+
+  area?'✓ Area / fence line':'Area / fence line';
+
+ $('message').textContent=message;
+
+ $('message').className=
+
+  messageOK?'valid':'invalid';
+
+ renderHabitatMenu();
+
+ renderInspection();
+
+ renderAnimals();
+
+ render();
+
+}
+
+$('overlay').onclick=()=>{
+
+ outlines=!outlines;
+
+ update();
+
+};
+
+$('animation').onclick=()=>{
+
+ animated=!animated;
+
+ update();
+
+};
+
+$('reset').onclick=()=>reset(true);
+
+// ==========================================
+// AUTOMATED LANDSCAPING TESTS
+// ==========================================
+
+let passed=0;
+let failed=0;
+
+function test(name,fn){
+
+ const row=document.createElement('div');
+
+ row.className='test';
+
+ const label=document.createElement('span');
+
+ label.textContent=name;
+
+ const result=document.createElement('strong');
+
+ let ok=false;
+
+ try{
+
+  ok=!!fn();
+
+ }catch(error){
+
+  row.title=error.message;
+
+ }
+
+ result.textContent=ok?'PASS':'FAIL';
+
+ result.className=ok?'valid':'invalid';
+
+ if(ok)passed++;
+ else failed++;
+
+ row.append(label,result);
+
+ $('tests').appendChild(row);
+
+}
+
+test('All 34 landscaping items registered',()=>{
+
+ return Object.keys(ITEMS).length===34;
+
+});
+
+test('All nine decorative animals registered',()=>{
+
+ return Object.keys(ANIMALS).length===9;
+
+});
+
+test('Placement preview does not spend money',()=>{
+
+ const {t,l}=fixture();
+
+ const cash=t.cash;
+
+ const p=l.preview(
+  'rose',P(1,1),P(3,2)
+ );
+
+ return p.ok&&p.cost===72&&
+  t.cash===cash&&t.buildings.size===0;
+
+});
+
+test('Area planting creates six separate plants',()=>{
+
+ const {t,l}=fixture();
+
+ return l.build(
+  'rose',P(1,1),P(3,2)
+ ).ok&&t.buildings.size===6;
+
+});
+
+test('Existing landscaping is not charged twice',()=>{
+
+ const {t,l}=fixture();
+
+ l.build('oak',P(1,1));
+
+ const cash=t.cash;
+
+ return l.build('oak',P(1,1)).cost===0&&
+  t.cash===cash;
+
+});
+
+test('Occupied tiles block overlapping construction',()=>{
+
+ const {t,l}=fixture();
+
+ l.build('oak',P(1,1));
+
+ return !l.build(
+  'rose',P(1,1),P(3,3)
+ ).ok&&t.buildings.size===1;
+
+});
+
+test('Fence corners connect automatically',()=>{
+
+ const {l}=fixture();
+
+ l.build(
+  'woodFence',P(1,1),P(4,4),true
+ );
+
+ return l.fenceMask(4,1)===12;
+
+});
+
+test('Unfenced paddocks are rejected',()=>{
+
+ const {l}=fixture();
+
+ return !l.createHabitat(
+  'paddock',P(7,3),P(10,6)
+ ).ok;
+
+});
+
+test('A complete fenced paddock can hold horses',()=>{
+
+ const {l}=fixture();
+
+ const p=buildPaddock(l);
+
+ return p.ok&&l.addAnimals(
+  p.habitat.id,'horse',2
+ ).ok;
+
+});
+
+test('Animals require the correct habitat',()=>{
+
+ const {l}=fixture();
+
+ const p=buildPaddock(l);
+
+ return !l.addAnimals(
+  p.habitat.id,'swan'
+ ).ok;
+
+});
+
+test('Paddock capacity prevents overcrowding',()=>{
+
+ const {l}=fixture();
+
+ const p=buildPaddock(l);
+
+ return l.addAnimals(
+  p.habitat.id,'horse',4
+ ).ok&&!l.addAnimals(
+  p.habitat.id,'foal'
+ ).ok;
+
+});
+
+test('Animals stay within their habitat',()=>{
+
+ const {l}=fixture();
+
+ const p=buildPaddock(l);
+
+ l.addAnimals(p.habitat.id,'horse',2);
+
+ for(let i=0;i<100;i++){
+
+  l.step();
+
+ }
+
+ return [...l.animals.values()].every(
+
+  a=>l.validAnimalTile(
+   p.habitat,a.x,a.y
+  )
+
+ );
+
+});
+
+test('Decorative animals have no running costs',()=>{
+
+ const {t,l}=fixture();
+
+ const p=buildPaddock(l);
+
+ l.addAnimals(p.habitat.id,'horse');
+
+ const cash=t.cash;
+
+ for(let i=0;i<100;i++)
+  l.step();
+
+ return t.cash===cash;
+
+});
+
+test('Paddock boundary cannot be accidentally removed',()=>{
+
+ const {l}=fixture();
+
+ buildPaddock(l);
+
+ return !l.remove(6,2).ok;
+
+});
+
+test('Wildlife gardens support existing flowers',()=>{
+
+ const {l}=fixture();
+
+ l.build(
+  'rose',P(1,1),P(3,3)
+ );
+
+ const p=l.createHabitat(
+  'garden',P(1,1),P(3,3)
+ );
+
+ return p.ok&&l.addAnimals(
+  p.habitat.id,'butterfly',2
+ ).ok;
+
+});
+
+test('Pond habitats require water',()=>{
+
+ const {t,l}=fixture();
+
+ if(l.createHabitat(
+  'pond',P(1,1),P(2,2)
+ ).ok)return false;
+
+ for(let y=1;y<=2;y++){
+
+  for(let x=1;x<=2;x++){
+
+   t.setTerrain(x,y,'water');
+
+  }
+
+ }
+
+ const p=l.createHabitat(
+  'pond',P(1,1),P(2,2)
+ );
+
+ return p.ok&&l.addAnimals(
+  p.habitat.id,'swan'
+ ).ok;
+
+});
+
+test('Landscaping increases nearby beauty',()=>{
+
+ const {l}=fixture();
+
+ l.build('oak',P(1,1));
+
+ l.build('rose',P(2,1));
+
+ return l.beautyAt(1,1)===4&&
+  l.beautyAt(19,13)===0;
+
+});
+
+$('summary').textContent=
+
+ passed+' tests passed · '+
+
+ failed+' tests failed';
+
+$('summary').className=
+
+ failed?'invalid':'valid';
+
+// ==========================================
+// INITIALISE AND ANIMATE WILDLIFE
+// ==========================================
+
+reset();
+
+setInterval(()=>{
+
+ if(!animated)return;
+
+ land.step();
+
+ renderAnimals();
+
+ render();
+
+},900);
+
+})();
+
+</script>
+
+</body>
+</html>
