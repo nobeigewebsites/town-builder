@@ -1,0 +1,1677 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1">
+
+<title>Town Builder V1.0 — Saved Towns</title>
+
+<style>
+
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    background:#101e18;
+    color:#edf4e9;
+    font-family:Arial,sans-serif;
+}
+
+header{
+    padding:20px;
+    background:#1b3024;
+    border-bottom:1px solid #405747;
+}
+
+h1{
+    color:#c2e3a4;
+    margin:0 0 8px;
+    font-size:24px;
+}
+
+h2{
+    color:#c6dfb7;
+    font-size:18px;
+    margin:0 0 12px;
+}
+
+h3{font-size:15px}
+
+.muted{
+    font-size:13px;
+    color:#abc0ac;
+    line-height:1.6;
+}
+
+.layout{
+    display:grid;
+    grid-template-columns:300px minmax(0,1fr);
+    gap:12px;
+    padding:12px;
+}
+
+.panel{
+    min-width:0;
+    border:1px solid #405747;
+    border-radius:12px;
+    background:#1b2e24;
+    padding:16px;
+}
+
+.section{
+    background:#263e2e;
+    border:1px solid #405747;
+    border-radius:9px;
+    padding:12px;
+    margin:10px 0;
+}
+
+button,input,select{
+    font:inherit;
+    color:#eff6e9;
+    padding:11px;
+    background:#304b38;
+    border:1px solid #4c694e;
+    border-radius:8px;
+}
+
+button{cursor:pointer}
+button:hover{filter:brightness(1.15)}
+button:disabled{opacity:.4;cursor:default}
+
+input,select,.wide{width:100%}
+
+.wide{margin:5px 0}
+
+label{
+    display:block;
+    margin:12px 0 6px;
+    font-size:13px;
+}
+
+.confirm{background:#488f50}
+.cancel{background:#934a43}
+
+.valid{color:#b2e99f}
+.invalid{color:#ffaaa0}
+.warning{color:#e9c775}
+
+.toolbar,.stats{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin:12px 0;
+}
+
+.stat{
+    padding:10px 14px;
+    background:#294335;
+    border:1px solid #45614b;
+    border-radius:8px;
+    font-size:13px;
+}
+
+.stat strong{
+    display:block;
+    margin-top:6px;
+    font-size:20px;
+}
+
+.town{
+    padding:13px;
+    border:1px solid #405747;
+    border-radius:10px;
+    margin:10px 0;
+    background:#263e2e;
+    cursor:pointer;
+}
+
+.town.selected{border:2px solid #b4d98d}
+
+.town.active{
+    background:#34543a;
+}
+
+.town strong{
+    display:block;
+    margin-bottom:7px;
+}
+
+canvas{
+    width:100%;
+    height:auto;
+    display:block;
+    border-radius:8px;
+    background:#9abb7d;
+}
+
+.test{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    padding:10px 0;
+    border-bottom:1px solid #405747;
+    font-size:13px;
+}
+
+.test-panel{margin:0 12px 12px}
+
+.hidden{display:none!important}
+
+a{color:#b9e0a6}
+
+footer{
+    padding:16px;
+    font-size:13px;
+}
+
+@media(max-width:750px){
+
+    .layout{
+        grid-template-columns:1fr;
+    }
+
+}
+
+</style>
+</head>
+<body>
+
+<header>
+
+    <h1>Town Builder V1.0</h1>
+
+    <div class="muted">
+        Development Workspace — Saved Towns & Backups
+    </div>
+
+    <p id="message" class="valid"></p>
+
+    <div id="moduleInfo" class="muted"></div>
+
+</header>
+
+<main class="layout">
+
+<aside class="panel">
+
+    <h2>My towns</h2>
+
+    <div id="townList"></div>
+
+    <label for="name">Town name</label>
+
+    <input id="name"
+           maxlength="60"
+           value="My countryside town">
+
+    <button id="create" class="wide confirm">
+        Create new test town
+    </button>
+
+    <button id="load" class="wide">
+        Load selected town
+    </button>
+
+    <button id="rename" class="wide">
+        Rename selected town
+    </button>
+
+    <button id="duplicate" class="wide">
+        Duplicate selected town
+    </button>
+
+    <button id="export" class="wide">
+        Export backup
+    </button>
+
+    <button id="import" class="wide">
+        Import backup
+    </button>
+
+    <input id="file"
+           class="hidden"
+           type="file"
+           accept=".json,application/json">
+
+    <button id="delete" class="wide cancel">
+        Delete selected town
+    </button>
+
+    <p class="muted">
+        Towns are stored in this browser.
+        Export important saves for safekeeping.
+    </p>
+
+</aside>
+
+<section class="panel">
+
+    <h2 id="activeName">No town loaded</h2>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="toolbar">
+
+        <button id="save" class="confirm">
+            💾 Save now
+        </button>
+
+        <button id="autosave">
+            Autosave: on
+        </button>
+
+        <button id="day1">
+            Advance 1 day
+        </button>
+
+        <button id="day3">
+            Advance 3 days
+        </button>
+
+        <button id="build">
+            Add test house
+        </button>
+
+    </div>
+
+    <p id="lastSaved" class="muted"></p>
+
+    <div id="worldDetails" class="section">
+
+        Create a town or load an existing save.
+
+    </div>
+
+    <canvas id="map"
+            width="800"
+            height="600"></canvas>
+
+    <div class="section">
+
+        <h3>Persistence test controls</h3>
+
+        <div class="toolbar">
+
+            <button id="research">
+                Start storage research
+            </button>
+
+            <button id="plant">
+                Plant wheat
+            </button>
+
+            <button id="harvest">
+                Harvest wheat
+            </button>
+
+            <button id="factory">
+                Toggle flour production
+            </button>
+
+            <button id="animals">
+                Move decorative animals
+            </button>
+
+        </div>
+
+        <p class="muted">
+            Make changes, save, refresh the browser
+            and reload the town to check persistence.
+        </p>
+
+    </div>
+
+</section>
+
+</main>
+
+<section class="panel test-panel">
+
+    <h2>Save system tests</h2>
+
+    <div id="tests"></div>
+
+    <h3 id="summary"></h3>
+
+</section>
+
+<footer>
+
+    <a href="./v1-landscaping.html">Landscaping</a>
+    &nbsp; | &nbsp;
+    <a href="./v1-progression.html">Research</a>
+    &nbsp; | &nbsp;
+    <a href="./v1-economy.html">Economy</a>
+    &nbsp; | &nbsp;
+    <a href="./index.html">Existing game</a>
+
+</footer>
+
+<script src="./js/engine.js"></script>
+<script src="./js/terrain.js"></script>
+<script src="./js/construction.js"></script>
+<script src="./js/transport.js"></script>
+<script src="./js/utilities.js"></script>
+<script src="./js/farming.js"></script>
+<script src="./js/industry.js"></script>
+<script src="./js/economy.js"></script>
+
+<!-- Population is optional in this workspace. -->
+<script src="./js/simulation.js"></script>
+
+<script src="./js/progression.js"></script>
+<script src="./js/landscaping.js"></script>
+<script src="./js/save.js"></script>
+
+<script>
+
+(() => {
+
+'use strict';
+
+const $=id=>document.getElementById(id);
+
+const canvas=$('map');
+const ctx=canvas.getContext('2d');
+
+const P=(x,y)=>({x,y});
+
+const money=n=>'£'+n.toLocaleString('en-GB');
+
+const hasSimulation=
+    typeof window.TownSimulation==='function';
+
+let store;
+let world=null;
+let activeId=null;
+let selectedId=null;
+let auto=true;
+let lastSaved=null;
+
+function notice(text,ok=true){
+
+    $('message').textContent=text;
+
+    $('message').className=
+        ok?'valid':'invalid';
+
+}
+
+function action(fn){
+
+    return ()=>{
+
+        try{
+
+            fn();
+            render();
+
+        }catch(error){
+
+            notice(error.message,false);
+
+        }
+
+    };
+
+}
+
+function element(tag,text,className=''){
+
+    const node=document.createElement(tag);
+
+    node.textContent=text;
+
+    if(className)node.className=className;
+
+    return node;
+
+}
+
+function assertResult(r){
+
+    if(!r.ok)throw new Error(r.reason);
+
+    return r;
+
+}
+
+// ==========================================
+// CREATE A DEMONSTRATION TOWN
+// ==========================================
+
+function starter(){
+
+    const w=TownSave.createWorld({
+        width:16,
+        height:12,
+        cash:18000
+    });
+
+    const t=w.town;
+    const l=w.landscaping;
+
+    function place(type,x,y){
+
+        return assertResult(
+            t.place(type,x,y)
+        ).building.id;
+
+    }
+
+    place('farmField',1,1);
+    place('industryMill',5,1);
+    place('farmBarn',5,5);
+    place('econFamilyHome',1,5);
+    place('econSolar',10,1);
+
+    const pen=place('animalPen',1,8);
+
+    assertResult(
+        w.transport.build(
+            'road',P(1,4),P(8,4)
+        )
+    );
+
+    assertResult(
+        w.utilities.commit(
+            'power',P(1,3),P(11,3)
+        )
+    );
+
+    // Wildlife pond.
+
+    for(let y=4;y<=5;y++){
+
+        for(let x=12;x<=14;x++)
+            t.setTerrain(x,y,'water');
+
+    }
+
+    // Custom horse paddock.
+
+    const routes=[
+        [P(10,6),P(11,6)],
+        [P(13,6),P(14,6)],
+        [P(10,6),P(10,10)],
+        [P(14,6),P(14,10)],
+        [P(10,10),P(14,10)]
+    ];
+
+    for(const [a,b] of routes)
+        assertResult(l.build('woodFence',a,b));
+
+    assertResult(l.build('farmGate',P(12,6)));
+
+    const h=assertResult(
+        l.createHabitat(
+            'paddock',P(11,7),P(13,9)
+        )
+    ).habitat;
+
+    assertResult(l.addAnimals(h.id,'horse'));
+    assertResult(l.addAnimals(h.id,'foal'));
+
+    assertResult(
+        l.build('lavenderBed',P(8,8),P(9,9))
+    );
+
+    w.farm.sync();
+    w.industry.sync();
+    w.economy.sync();
+
+    if(w.simulation)w.simulation.sync();
+
+    assertResult(w.farm.buyAnimals(pen,'chicken',2));
+    assertResult(w.farm.buyFeed(10));
+
+    w.industry.add('wheat',20);
+    w.industry.add('bread',8);
+
+    return w;
+
+}
+
+// ==========================================
+// SAVING AND LOADING
+// ==========================================
+
+function saveActive(){
+
+    if(!world||!activeId)return;
+
+    lastSaved=store.save(activeId,world);
+
+    $('lastSaved').textContent=
+        'Last saved: '+new Date(lastSaved).toLocaleString();
+
+}
+
+function activate(id){
+
+    // Reconstruct successfully before replacing active town.
+
+    const next=store.load(id);
+
+    world=next;
+    activeId=id;
+    selectedId=id;
+
+    const r=store.get(id);
+
+    lastSaved=r.updated;
+
+    $('name').value=r.name;
+
+}
+
+$('create').onclick=action(()=>{
+
+    saveActive();
+
+    const id=store.create(
+        $('name').value,starter()
+    );
+
+    activate(id);
+
+    notice('New town created and saved.');
+
+});
+
+$('load').onclick=action(()=>{
+
+    if(!selectedId)
+        throw new Error('Select a town');
+
+    saveActive();
+
+    activate(selectedId);
+
+    notice('Town restored successfully.');
+
+});
+
+$('save').onclick=action(()=>{
+
+    saveActive();
+
+    notice('Town saved successfully.');
+
+});
+
+$('rename').onclick=action(()=>{
+
+    store.rename(
+        selectedId,$('name').value
+    );
+
+    notice('Town renamed.');
+
+});
+
+$('duplicate').onclick=action(()=>{
+
+    saveActive();
+
+    selectedId=store.duplicate(selectedId);
+
+    $('name').value=
+        store.get(selectedId).name;
+
+    notice('Independent copy created.');
+
+});
+
+$('delete').onclick=action(()=>{
+
+    const r=store.get(selectedId);
+
+    if(!confirm(
+        'Permanently delete "'+r.name+
+        '" from this browser?'
+    ))return;
+
+    store.remove(selectedId);
+
+    if(activeId===selectedId){
+
+        activeId=null;
+        world=null;
+        lastSaved=null;
+
+    }
+
+    selectedId=null;
+
+    notice('Town deleted.');
+
+});
+
+$('export').onclick=action(()=>{
+
+    saveActive();
+
+    const r=store.get(selectedId);
+
+    const text=store.exportTown(selectedId);
+
+    const blob=new Blob(
+        [text],
+        {type:'application/json'}
+    );
+
+    const url=URL.createObjectURL(blob);
+
+    const a=document.createElement('a');
+
+    a.href=url;
+
+    a.download=
+        r.name.replace(/[^a-z0-9_-]/gi,'_')+
+        '.town.json';
+
+    document.body.appendChild(a);
+
+    a.click();
+
+    a.remove();
+
+    setTimeout(
+        ()=>URL.revokeObjectURL(url),1000
+    );
+
+    notice('Backup export requested.');
+
+});
+
+$('import').onclick=()=>$('file').click();
+
+$('file').onchange=async()=>{
+
+    const file=$('file').files[0];
+
+    if(!file)return;
+
+    try{
+
+        if(file.size>2000000)
+            throw new Error('Backup is too large');
+
+        const text=await file.text();
+
+        saveActive();
+
+        selectedId=store.importTown(text);
+
+        $('name').value=
+            store.get(selectedId).name;
+
+        notice(
+            'Backup imported as a separate town.'
+        );
+
+        render();
+
+    }catch(error){
+
+        notice(
+            'Import failed: '+error.message,false
+        );
+
+    }finally{
+
+        $('file').value='';
+
+    }
+
+};
+
+// ==========================================
+// AUTOMATIC SAVING
+// ==========================================
+
+$('autosave').onclick=action(()=>{
+
+    auto=!auto;
+
+    notice(
+        auto?'Automatic saving enabled.':
+        'Automatic saving disabled.'
+    );
+
+});
+
+setInterval(()=>{
+
+    if(!auto||!world)return;
+
+    try{
+
+        saveActive();
+        renderTownList();
+
+    }catch(error){
+
+        notice(
+            'Autosave failed: '+error.message,false
+        );
+
+    }
+
+},15000);
+
+window.addEventListener('pagehide',()=>{
+
+    if(!auto||!world)return;
+
+    try{
+
+        saveActive();
+
+    }catch(error){
+
+        console.error('Final autosave failed',error);
+
+    }
+
+});
+
+document.addEventListener('visibilitychange',()=>{
+
+    if(
+        document.visibilityState==='hidden'&&
+        auto&&world
+    ){
+
+        try{
+            saveActive();
+        }catch(error){
+            notice(
+                'Autosave failed: '+error.message,false
+            );
+        }
+
+    }
+
+});
+
+// ==========================================
+// TEST GAMEPLAY CONTROLS
+// ==========================================
+
+function fieldId(){
+
+    return [...world.farm.fields.keys()][0];
+
+}
+
+function factoryId(){
+
+    return [...world.industry.factories.keys()][0];
+
+}
+
+for(const days of [1,3]){
+
+    $('day'+days).onclick=action(()=>{
+
+        assertResult(
+            world.progression.advance(days)
+        );
+
+        notice(days+' day(s) completed.');
+
+    });
+
+}
+
+$('build').onclick=action(()=>{
+
+    const t=world.town;
+
+    for(let y=0;y<t.height;y++){
+
+        for(let x=0;x<t.width;x++){
+
+            if(
+                world.transport.get(x,y)||
+                world.landscaping.habitatAt(x,y)
+            )continue;
+
+            if(!t.preview('econCottage',x,y).ok)
+                continue;
+
+            assertResult(
+                t.place('econCottage',x,y)
+            );
+
+            if(world.simulation)
+                world.simulation.sync();
+
+            world.economy.sync();
+
+            notice('New house constructed.');
+
+            return;
+
+        }
+
+    }
+
+    throw new Error(
+        'No available building location or funds'
+    );
+
+});
+
+$('research').onclick=action(()=>{
+
+    assertResult(
+        world.progression.startResearch('storage')
+    );
+
+    notice('Storage research started.');
+
+});
+
+$('plant').onclick=action(()=>{
+
+    assertResult(
+        world.farm.plant(fieldId(),'wheat')
+    );
+
+    notice('Wheat planted.');
+
+});
+
+$('harvest').onclick=action(()=>{
+
+    assertResult(
+        world.progression.harvest(fieldId())
+    );
+
+    notice('Wheat harvested.');
+
+});
+
+$('factory').onclick=action(()=>{
+
+    const id=factoryId();
+
+    const f=world.industry.factories.get(id);
+
+    assertResult(
+        f.enabled
+            ?world.industry.setRunning(id,false)
+            :world.industry.configure(id,'millWheat')
+    );
+
+    notice('Production updated.');
+
+});
+
+$('animals').onclick=action(()=>{
+
+    world.landscaping.step();
+
+    notice('Decorative animals moved.');
+
+});
+
+// ==========================================
+// SAVED TOWN CARDS
+// ==========================================
+
+function renderTownList(){
+
+    $('townList').replaceChildren();
+
+    const towns=store.list();
+
+    if(!towns.length){
+
+        $('townList').appendChild(
+            element('p','No saved towns yet.','muted')
+        );
+
+    }
+
+    for(const r of towns){
+
+        const box=element('div','','town');
+
+        box.classList.toggle(
+            'selected',r.id===selectedId
+        );
+
+        box.classList.toggle(
+            'active',r.id===activeId
+        );
+
+        box.appendChild(element(
+            'strong',
+            '🏡 '+r.name+
+            (r.id===activeId?' — Loaded':'')
+        ));
+
+        box.appendChild(element(
+            'div',
+            'Day '+r.day+
+            ' · '+money(r.cash)+
+            ' · '+r.population+' residents',
+            'muted'
+        ));
+
+        box.appendChild(element(
+            'div',
+            'Saved '+new Date(r.updated).toLocaleString(),
+            'muted'
+        ));
+
+        box.tabIndex=0;
+        box.setAttribute('role','button');
+
+        box.onclick=()=>{
+
+            selectedId=r.id;
+            $('name').value=r.name;
+            render();
+
+        };
+
+        box.onkeydown=e=>{
+
+            if(e.key==='Enter'||e.key===' '){
+
+                e.preventDefault();
+                box.click();
+
+            }
+
+        };
+
+        $('townList').appendChild(box);
+
+    }
+
+}
+
+// ==========================================
+// MAP PREVIEW
+// ==========================================
+
+function drawMap(){
+
+    ctx.clearRect(
+        0,0,canvas.width,canvas.height
+    );
+
+    if(!world){
+
+        ctx.fillStyle='#9abb7d';
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+
+        return;
+
+    }
+
+    const t=world.town;
+    const l=world.landscaping;
+
+    const sx=canvas.width/t.width;
+    const sy=canvas.height/t.height;
+
+    const colors={
+        grass:'#9fbe7b',
+        soil:'#a88b61',
+        sand:'#d9c99c',
+        water:'#79b5cc',
+        paving:'#b7b9ae',
+        gravel:'#aaa89a'
+    };
+
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+
+    for(let y=0;y<t.height;y++){
+
+        for(let x=0;x<t.width;x++){
+
+            ctx.fillStyle=
+                colors[t.getTerrain(x,y)]||'#9fbe7b';
+
+            ctx.fillRect(x*sx,y*sy,sx,sy);
+
+            ctx.strokeStyle='rgba(0,0,0,.1)';
+            ctx.lineWidth=1;
+
+            ctx.strokeRect(x*sx,y*sy,sx,sy);
+
+            if(world.transport.get(x,y)){
+
+                ctx.fillStyle='#77817e';
+
+                ctx.fillRect(
+                    x*sx,y*sy,sx,sy
+                );
+
+            }
+
+        }
+
+    }
+
+    for(const b of t.buildings.values()){
+
+        const d=
+            TownEconomyBuildings[b.type]||
+            TownIndustryBuildings[b.type]||
+            TownFarmBuildings[b.type]||
+            window.TownSimulationBuildings?.[b.type];
+
+        const item=l.itemAt(b.x,b.y);
+
+        if(item){
+
+            if(item.type.fence){
+
+                ctx.fillStyle=item.type.color;
+
+                ctx.fillRect(
+                    b.x*sx+sx*.25,
+                    b.y*sy+sy*.25,
+                    sx*.5,sy*.5
+                );
+
+            }else{
+
+                ctx.font=
+                    Math.floor(sx*.6)+'px Arial';
+
+                ctx.fillText(
+                    item.type.icon,
+                    (b.x+.5)*sx,
+                    (b.y+.5)*sy
+                );
+
+            }
+
+            continue;
+
+        }
+
+        ctx.fillStyle=
+            d?.kind==='field'?'#ab8755':'#c5b7a1';
+
+        ctx.fillRect(
+            b.x*sx+2,b.y*sy+2,
+            b.width*sx-4,b.height*sy-4
+        );
+
+        ctx.font=Math.floor(sx*.62)+'px Arial';
+
+        const field=world.farm.fields.get(b.id);
+
+        ctx.fillText(
+
+            field?.crop
+                ?TownFarmCrops[field.crop].icon
+                :d?.icon||(
+                    d?.kind==='field'?'🌱':'🏚️'
+                ),
+
+            (b.x+b.width/2)*sx,
+            (b.y+b.height/2)*sy
+
+        );
+
+    }
+
+    for(const h of l.habitats.values()){
+
+        ctx.strokeStyle='#fff1b8';
+        ctx.lineWidth=2;
+        ctx.setLineDash([6,5]);
+
+        ctx.strokeRect(
+            h.x*sx,h.y*sy,
+            h.width*sx,h.height*sy
+        );
+
+        ctx.setLineDash([]);
+
+    }
+
+    for(const a of l.animals.values()){
+
+        ctx.font=Math.floor(
+            sx*(a.type==='foal'?.4:.58)
+        )+'px Arial';
+
+        ctx.fillText(
+            TownDecorativeAnimals[a.type].icon,
+            (a.x+.5)*sx,
+            (a.y+.5)*sy
+        );
+
+    }
+
+}
+
+// ==========================================
+// WORKSPACE REFRESH
+// ==========================================
+
+function render(){
+
+    renderTownList();
+
+    $('stats').replaceChildren();
+
+    for(const id of [
+        'load','rename','duplicate','export','delete'
+    ]){
+
+        $(id).disabled=!selectedId;
+
+    }
+
+    for(const id of [
+        'save','day1','day3','build','research',
+        'plant','harvest','factory','animals'
+    ]){
+
+        $(id).disabled=!world;
+
+    }
+
+    $('autosave').textContent=
+        'Autosave: '+(auto?'on':'off');
+
+    if(!world){
+
+        $('activeName').textContent='No town loaded';
+
+        $('worldDetails').textContent=
+            'Create or select a saved town.';
+
+        $('lastSaved').textContent='';
+
+        drawMap();
+
+        return;
+
+    }
+
+    world.farm.sync();
+    world.industry.sync();
+
+    if(world.simulation)
+        world.simulation.sync();
+
+    world.economy.sync();
+
+    const r=store.get(activeId);
+
+    $('activeName').textContent=r.name;
+
+    const metrics=[
+        ['Day',world.farm.day],
+        ['Town funds',money(world.town.cash)],
+        ['Buildings',world.town.buildings.size],
+        ['Storage',world.farm.used()+'/'+world.farm.capacity()],
+        ['Animals',world.landscaping.animals.size]
+    ];
+
+    for(const [name,value] of metrics){
+
+        const box=element('div',name,'stat');
+
+        box.appendChild(element('strong',value));
+
+        $('stats').appendChild(box);
+
+    }
+
+    const field=world.farm.fields.get(fieldId());
+
+    const factory=
+        world.industry.factories.get(factoryId());
+
+    const research=world.progression.active;
+
+    $('worldDetails').replaceChildren();
+
+    const details=[
+
+        'Field: '+(
+            field?.crop
+                ?field.crop+' — '+world.farm.stage(fieldId())
+                :'Empty'
+        ),
+
+        'Mill: '+(factory?.status||'Not built'),
+
+        'Wheat stored: '+world.farm.amount('wheat'),
+
+        'Flour stored: '+world.farm.amount('flour'),
+
+        'Research: '+(
+            research
+                ?research.id+' — '+research.remaining+' days left'
+                :world.progression.researched.size+' completed'
+        ),
+
+        'Road tiles: '+world.transport.layers.surface.size,
+
+        'Power network tiles: '+world.utilities.lines.power.size,
+
+        'Households: '+world.economy.households(),
+
+        'Habitat count: '+world.landscaping.habitats.size
+
+    ];
+
+    for(const text of details)
+        $('worldDetails').appendChild(element('p',text));
+
+    $('lastSaved').textContent=lastSaved
+        ?'Last saved: '+new Date(lastSaved).toLocaleString()
+        :'Not yet saved';
+
+    $('research').disabled=
+        !!research||
+        world.progression.researched.has('storage');
+
+    $('plant').disabled=!field||!!field.crop;
+
+    $('harvest').disabled=
+        !field||
+        world.farm.stage(fieldId())!=='Ready to harvest';
+
+    drawMap();
+
+}
+
+// ==========================================
+// AUTOMATED SAVE TESTS
+// Uses temporary memory, never real player saves.
+// ==========================================
+
+class MemoryStorage {
+
+    constructor(){
+        this.data=new Map();
+        this.full=false;
+    }
+
+    getItem(key){
+        return this.data.get(key)??null;
+    }
+
+    setItem(key,value){
+
+        if(this.full)
+            throw new Error('Storage full');
+
+        this.data.set(key,value);
+
+    }
+
+}
+
+let passed=0;
+let failed=0;
+
+function test(name,fn){
+
+    const row=element('div','','test');
+
+    row.appendChild(element('span',name));
+
+    let ok=false;
+
+    try{
+
+        ok=!!fn();
+
+    }catch(error){
+
+        row.title=error.message;
+
+    }
+
+    row.appendChild(element(
+        'strong',
+        ok?'PASS':'FAIL',
+        ok?'valid':'invalid'
+    ));
+
+    if(ok)passed++;
+    else failed++;
+
+    $('tests').appendChild(row);
+
+}
+
+function roundTrip(w){
+
+    return TownSave.restore(
+        JSON.parse(JSON.stringify(TownSave.capture(w)))
+    );
+
+}
+
+test('Terrain and buildings survive restoration',()=>{
+
+    const w=starter();
+
+    const r=roundTrip(w);
+
+    return r.town.getTerrain(12,4)==='water'&&
+        r.town.buildings.size===w.town.buildings.size;
+
+});
+
+test('Loading does not charge construction costs',()=>{
+
+    const w=starter();
+
+    w.town.cash=0;
+
+    return roundTrip(w).town.cash===0;
+
+});
+
+test('Building IDs and occupancy are reconstructed',()=>{
+
+    const w=starter();
+
+    const r=roundTrip(w);
+
+    return [...w.town.occupied].every(
+        ([k,id])=>r.town.occupied.get(k)===id
+    )&&r.town.nextId===w.town.nextId;
+
+});
+
+test('Transport and utility networks are restored',()=>{
+
+    const r=roundTrip(starter());
+
+    return r.transport.get(1,4)==='road'&&
+        r.utilities.lines.power.has(
+            r.town.key(1,3)
+        );
+
+});
+
+test('Farm growth, livestock and inventory persist',()=>{
+
+    const w=starter();
+
+    const id=[...w.farm.fields.keys()][0];
+
+    w.farm.plant(id,'wheat');
+
+    w.progression.advance(2);
+
+    const r=roundTrip(w);
+
+    return r.farm.fields.get(id).age===
+        w.farm.fields.get(id).age&&
+        r.farm.amount('wheat')===w.farm.amount('wheat')&&
+        r.farm.pens.size===w.farm.pens.size;
+
+});
+
+test('Factory recipes and simulation days persist',()=>{
+
+    const w=starter();
+
+    const id=[...w.industry.factories.keys()][0];
+
+    w.industry.configure(id,'millWheat');
+
+    w.progression.advance();
+
+    const r=roundTrip(w);
+
+    return r.farm.day===w.farm.day&&
+        r.industry.factories.get(id).recipe==='millWheat'&&
+        r.farm.amount('flour')===w.farm.amount('flour');
+
+});
+
+test('Active research and completed projects persist',()=>{
+
+    const w=starter();
+
+    w.progression.startResearch('harvesting');
+    w.progression.advance(2);
+
+    w.progression.startResearch('storage');
+    w.progression.advance();
+
+    const r=roundTrip(w);
+
+    return r.progression.researched.has('harvesting')&&
+        r.progression.active.remaining===2;
+
+});
+
+test('Trade contracts and taxation persist',()=>{
+
+    const w=starter();
+
+    w.economy.setTaxes(12,18);
+
+    w.economy.acceptContract('wheatOrder');
+
+    const r=roundTrip(w);
+
+    return r.economy.householdTax===12&&
+        r.economy.businessTax===18&&
+        r.economy.contracts.get('wheatOrder').status==='active';
+
+});
+
+test('Paddocks and horse positions persist',()=>{
+
+    const w=starter();
+
+    w.landscaping.step();
+
+    const r=roundTrip(w);
+
+    return r.landscaping.habitats.size===1&&
+        r.landscaping.animals.size===2&&
+        [...w.landscaping.animals].every(([id,a])=>{
+
+            const b=r.landscaping.animals.get(id);
+
+            return a.x===b.x&&a.y===b.y&&a.type===b.type;
+
+        });
+
+});
+
+test('Duplicated towns remain independent',()=>{
+
+    const s=new TownSaveStore(new MemoryStorage());
+
+    const a=s.create('Original',starter());
+
+    const b=s.duplicate(a);
+
+    const copy=s.load(b);
+
+    copy.town.cash=999;
+
+    s.save(b,copy);
+
+    return s.load(a).town.cash!==999&&
+        s.load(b).town.cash===999;
+
+});
+
+test('Backup imports create separate towns',()=>{
+
+    const s=new TownSaveStore(new MemoryStorage());
+
+    const a=s.create('Original',starter());
+
+    const b=s.importTown(s.exportTown(a));
+
+    return a!==b&&s.list().length===2;
+
+});
+
+test('Invalid backups do not overwrite saves',()=>{
+
+    const s=new TownSaveStore(new MemoryStorage());
+
+    s.create('Original',starter());
+
+    try{
+
+        s.importTown('{"invalid":true}');
+
+        return false;
+
+    }catch(error){
+
+        return s.list().length===1;
+
+    }
+
+});
+
+test('Failed storage writes preserve previous saves',()=>{
+
+    const memory=new MemoryStorage();
+
+    const s=new TownSaveStore(memory);
+
+    const w=starter();
+
+    const id=s.create('Original',w);
+
+    const originalCash=w.town.cash;
+
+    memory.full=true;
+
+    w.town.cash=100;
+
+    try{
+
+        s.save(id,w);
+
+        return false;
+
+    }catch(error){
+
+        return s.load(id).town.cash===originalCash;
+
+    }
+
+});
+
+test('Renaming and deleting affect only selected towns',()=>{
+
+    const s=new TownSaveStore(new MemoryStorage());
+
+    const a=s.create('First',starter());
+
+    const b=s.create('Second',starter());
+
+    s.rename(a,'Renamed');
+
+    const correct=s.get(a).name==='Renamed';
+
+    s.remove(a);
+
+    return correct&&
+        s.list().length===1&&
+        s.get(b).name==='Second';
+
+});
+
+if(hasSimulation){
+
+    test('Residential occupancy survives save and load',()=>{
+
+        const w=starter();
+
+        const b=[...w.town.buildings.values()].find(
+            a=>a.type==='econFamilyHome'
+        );
+
+        w.simulation.sync();
+
+        w.economy.setOccupancy(b.id,1);
+
+        const r=roundTrip(w);
+
+        return r.simulation.report().population===3;
+
+    });
+
+}
+
+$('summary').textContent=
+    passed+' tests passed · '+failed+' tests failed';
+
+$('summary').className=
+    failed?'invalid':'valid';
+
+// ==========================================
+// INITIALISE SAVE LIBRARY
+// ==========================================
+
+$('moduleInfo').textContent=hasSimulation
+
+    ?'Population module connected.'
+
+    :'Population module not installed. Other modules connected.';
+
+try{
+
+    store=new TownSaveStore();
+
+    const towns=store.list();
+
+    if(towns.length){
+
+        activate(towns[0].id);
+
+        notice('Most recently saved town restored.');
+
+    }else{
+
+        notice('Create your first test town.');
+
+    }
+
+    render();
+
+}catch(error){
+
+    notice(
+        'Save library could not be opened: '+error.message,
+        false
+    );
+
+}
+
+})();
+
+</script>
+
+</body>
+</html>
