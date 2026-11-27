@@ -1,0 +1,1362 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>Town Builder V1.0 — Terrain</title>
+
+<style>
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        background: #101e18;
+        color: #eef4e9;
+        font-family: Arial, sans-serif;
+    }
+
+    header {
+        padding: 18px 22px;
+        background: #192d23;
+        border-bottom: 1px solid #3a5341;
+    }
+
+    h1 {
+        font-size: 22px;
+        margin: 0 0 5px;
+        color: #c2e3a4;
+    }
+
+    .subtitle {
+        color: #a6bcab;
+        font-size: 13px;
+    }
+
+    .workspace {
+        display: grid;
+        grid-template-columns: 240px minmax(0, 1fr);
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .panel {
+        background: #1b2c24;
+        border: 1px solid #364d3f;
+        border-radius: 12px;
+        padding: 15px;
+    }
+
+    h2 {
+        font-size: 16px;
+        margin: 0 0 15px;
+        color: #d2e6c0;
+    }
+
+    label {
+        display: block;
+        font-size: 12px;
+        color: #b5c5b6;
+        margin: 14px 0 6px;
+    }
+
+    button,
+    select,
+    input {
+        font: inherit;
+        color: #eff5e9;
+        background: #2a4233;
+        border: 1px solid #49614d;
+        border-radius: 7px;
+        padding: 10px;
+    }
+
+    button {
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #3d6044;
+    }
+
+    button.active {
+        border-color: #b9e284;
+        background: #476b3f;
+    }
+
+    button:disabled {
+        opacity: .4;
+        cursor: default;
+    }
+
+    select,
+    input {
+        width: 100%;
+    }
+
+    .wide {
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .generate {
+        background: #537b46;
+        font-weight: bold;
+    }
+
+    .brushes {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+    }
+
+    .swatch {
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 5px;
+    }
+
+    .map-panel {
+        min-width: 0;
+        overflow: hidden;
+        padding: 8px;
+    }
+
+    .map-tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 7px;
+        padding-bottom: 8px;
+    }
+
+    canvas {
+        display: block;
+        width: 100%;
+        height: 68vh;
+        min-height: 380px;
+        background: #15271f;
+        border-radius: 8px;
+        touch-action: none;
+        cursor: crosshair;
+    }
+
+    .status {
+        padding: 10px 4px 3px;
+        font-size: 12px;
+        color: #b3c6ad;
+    }
+
+    .test-panel {
+        margin: 0 12px 12px;
+    }
+
+    .pass {
+        color: #a3e69a;
+    }
+
+    .fail {
+        color: #ffa399;
+    }
+
+    .test-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 9px 0;
+        border-bottom: 1px solid #364d3f;
+        font-size: 13px;
+    }
+
+    a {
+        color: #b8dca4;
+    }
+
+    footer {
+        padding: 15px;
+        font-size: 13px;
+    }
+
+    @media (max-width: 720px) {
+
+        .workspace {
+            grid-template-columns: 1fr;
+        }
+
+        canvas {
+            height: 55vh;
+            min-height: 320px;
+        }
+
+        .brushes {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+    }
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+    <h1>Town Builder V1.0</h1>
+
+    <div class="subtitle">
+        Development Workspace — Terrain & World Generation
+    </div>
+
+</header>
+
+<div class="workspace">
+
+    <aside class="panel">
+
+        <h2>World creation</h2>
+
+        <label for="preset">Starting landscape</label>
+
+        <select id="preset">
+
+            <option value="coast">
+                Coastal landscape
+            </option>
+
+            <option value="island">
+                Island
+            </option>
+
+            <option value="countryside">
+                Countryside
+            </option>
+
+            <option value="flat">
+                Flat land
+            </option>
+
+        </select>
+
+        <label for="mapSize">Map size</label>
+
+        <select id="mapSize">
+
+            <option value="32">32 × 32</option>
+
+            <option value="48" selected>
+                48 × 48
+            </option>
+
+            <option value="64">64 × 64</option>
+
+            <option value="96">96 × 96</option>
+
+        </select>
+
+        <label for="seed">Landscape seed</label>
+
+        <input id="seed"
+               type="number"
+               step="1"
+               value="42">
+
+        <button id="generate"
+                class="wide generate">
+
+            Generate world
+
+        </button>
+
+        <hr style="border:0;
+                   border-top:1px solid #364d3f;
+                   margin:20px 0">
+
+        <h2>Landscaping</h2>
+
+        <div class="brushes" id="brushes"></div>
+
+        <label for="brushSize">
+
+            Brush size
+
+            <span id="brushLabel">1</span>
+
+        </label>
+
+        <input id="brushSize"
+               type="range"
+               min="1"
+               max="15"
+               step="2"
+               value="1">
+
+        <button id="undo" class="wide">
+
+            ↶ Undo landscaping
+
+        </button>
+
+        <p style="font-size:12px;
+                  color:#a6bcab;
+                  line-height:1.6">
+
+            Paint water to create waterways.
+            Paint grass or sand over water to reclaim land.
+
+        </p>
+
+    </aside>
+
+    <section class="panel map-panel">
+
+        <div class="map-tools">
+
+            <button id="paintMode" class="active">
+
+                Paint terrain
+
+            </button>
+
+            <button id="panMode">
+
+                Move map
+
+            </button>
+
+            <button id="zoomIn">＋</button>
+
+            <button id="zoomOut">−</button>
+
+            <button id="fit">Fit map</button>
+
+        </div>
+
+        <canvas id="map"></canvas>
+
+        <div id="status" class="status"></div>
+
+    </section>
+
+</div>
+
+<section class="panel test-panel">
+
+    <h2>Terrain engine tests</h2>
+
+    <div id="tests"></div>
+
+    <h3 id="summary"></h3>
+
+</section>
+
+<footer>
+
+    <a href="./v1-test.html">
+
+        Core engine tests
+
+    </a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./index.html">
+
+        Existing game
+
+    </a>
+
+</footer>
+
+<script src="./js/engine.js"></script>
+<script src="./js/terrain.js"></script>
+
+<script>
+
+(() => {
+
+    'use strict';
+
+    const $ = id => document.getElementById(id);
+
+    const canvas = $('map');
+
+    const ctx = canvas.getContext('2d');
+
+    const colours = {
+
+        grass: [
+            '#91bd68',
+            '#97c36d',
+            '#8ab561'
+        ],
+
+        sand: [
+            '#e5d19b',
+            '#ead7a5',
+            '#dec991'
+        ],
+
+        soil: [
+            '#92704a',
+            '#98764e',
+            '#896843'
+        ],
+
+        gravel: [
+            '#aaa89a',
+            '#b4b1a4',
+            '#a19e92'
+        ],
+
+        paving: [
+            '#a6a9a4',
+            '#b2b5b0',
+            '#999e98'
+        ],
+
+        water: [
+            '#4999ba',
+            '#4d9ebe',
+            '#4594b5'
+        ]
+
+    };
+
+    const HALF_W = 24;
+    const HALF_H = 12;
+
+    let town;
+    let terrain;
+
+    let surface = 'grass';
+
+    let mode = 'paint';
+
+    let zoom = 1;
+
+    let offsetX = 0;
+    let offsetY = 0;
+
+    let drag = null;
+
+    let pending = false;
+
+    // ==========================================
+    // COORDINATE PROJECTION
+    // ==========================================
+
+    function project(x, y) {
+
+        return {
+
+            x: (x - y) * HALF_W,
+
+            y: (x + y) * HALF_H
+
+        };
+
+    }
+
+    function tileAt(px, py) {
+
+        const wx = (px - offsetX) / zoom;
+
+        const wy = (py - offsetY) / zoom;
+
+        return {
+
+            x: Math.floor(
+
+                (wy / HALF_H + wx / HALF_W) / 2
+
+            ),
+
+            y: Math.floor(
+
+                (wy / HALF_H - wx / HALF_W) / 2
+
+            )
+
+        };
+
+    }
+
+    // ==========================================
+    // MAP RENDERING
+    // ==========================================
+
+    function render() {
+
+        const dpr = Math.min(
+
+            window.devicePixelRatio || 1,
+
+            2
+
+        );
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        ctx.clearRect(
+
+            0,
+
+            0,
+
+            canvas.clientWidth,
+
+            canvas.clientHeight
+
+        );
+
+        ctx.save();
+
+        ctx.translate(offsetX, offsetY);
+
+        ctx.scale(zoom, zoom);
+
+        for (let y = 0; y < town.height; y++) {
+
+            for (let x = 0; x < town.width; x++) {
+
+                const p = project(x, y);
+
+                const type = town.getTerrain(x, y);
+
+                const shades = colours[type];
+
+                const variation =
+
+                    ((x * 17 + y * 31) % 3);
+
+                ctx.fillStyle = shades[variation];
+
+                ctx.beginPath();
+
+                ctx.moveTo(p.x, p.y);
+
+                ctx.lineTo(
+                    p.x + HALF_W,
+                    p.y + HALF_H
+                );
+
+                ctx.lineTo(
+                    p.x,
+                    p.y + HALF_H * 2
+                );
+
+                ctx.lineTo(
+                    p.x - HALF_W,
+                    p.y + HALF_H
+                );
+
+                ctx.closePath();
+
+                ctx.fill();
+
+                ctx.strokeStyle = type === 'water'
+
+                    ? 'rgba(44, 116, 145, 0.12)'
+
+                    : 'rgba(40, 65, 30, 0.12)';
+
+                ctx.lineWidth = 0.7;
+
+                ctx.stroke();
+
+                // Water surface detail
+
+                if (
+
+                    type === 'water' &&
+
+                    (x * 7 + y * 11) % 5 === 0
+
+                ) {
+
+                    ctx.strokeStyle =
+                        'rgba(220, 248, 255, 0.22)';
+
+                    ctx.lineWidth = 1;
+
+                    ctx.beginPath();
+
+                    ctx.moveTo(
+
+                        p.x - 7,
+
+                        p.y + HALF_H
+
+                    );
+
+                    ctx.lineTo(
+
+                        p.x + 7,
+
+                        p.y + HALF_H
+
+                    );
+
+                    ctx.stroke();
+
+                }
+
+            }
+
+        }
+
+        ctx.restore();
+
+        updateStatus();
+
+    }
+
+    function redraw() {
+
+        if (pending) return;
+
+        pending = true;
+
+        requestAnimationFrame(() => {
+
+            pending = false;
+
+            render();
+
+        });
+
+    }
+
+    // ==========================================
+    // MAP CAMERA
+    // ==========================================
+
+    function fitMap() {
+
+        const w = canvas.clientWidth;
+
+        const h = canvas.clientHeight;
+
+        const mapWidth =
+            (town.width + town.height) * HALF_W;
+
+        const mapHeight =
+            (town.width + town.height) * HALF_H;
+
+        zoom = Math.min(
+
+            w / (mapWidth + 64),
+
+            h / (mapHeight + 64),
+
+            2
+
+        );
+
+        const centre = project(
+
+            town.width / 2,
+
+            town.height / 2
+
+        );
+
+        offsetX = w / 2 - centre.x * zoom;
+
+        offsetY = h / 2 - centre.y * zoom;
+
+        redraw();
+
+    }
+
+    function resize() {
+
+        const dpr = Math.min(
+
+            window.devicePixelRatio || 1,
+
+            2
+
+        );
+
+        canvas.width = Math.round(
+
+            canvas.clientWidth * dpr
+
+        );
+
+        canvas.height = Math.round(
+
+            canvas.clientHeight * dpr
+
+        );
+
+        fitMap();
+
+    }
+
+    function changeZoom(factor, cx, cy) {
+
+        const next = Math.max(
+
+            0.08,
+
+            Math.min(3, zoom * factor)
+
+        );
+
+        offsetX = cx -
+
+            (cx - offsetX) * next / zoom;
+
+        offsetY = cy -
+
+            (cy - offsetY) * next / zoom;
+
+        zoom = next;
+
+        redraw();
+
+    }
+
+    // ==========================================
+    // WORLD CREATION
+    // ==========================================
+
+    function generateWorld(ask = false) {
+
+        if (
+
+            ask &&
+
+            !confirm(
+                'Generate a new test world? ' +
+                'Current landscaping will be lost.'
+            )
+
+        ) return;
+
+        const size = Number($('mapSize').value);
+
+        const seed = Number($('seed').value);
+
+        if (!Number.isInteger(seed)) {
+
+            alert('Please enter a whole-number seed.');
+
+            return;
+
+        }
+
+        town = new TownEngine({
+
+            width: size,
+
+            height: size,
+
+            cash: 10000
+
+        });
+
+        terrain = new TownTerrain(town);
+
+        terrain.generate(
+
+            $('preset').value,
+
+            seed
+
+        );
+
+        resize();
+
+    }
+
+    // ==========================================
+    // LANDSCAPING CONTROLS
+    // ==========================================
+
+    for (const [name, shades] of Object.entries(colours)) {
+
+        const button = document.createElement('button');
+
+        button.dataset.surface = name;
+
+        button.innerHTML =
+
+            '<span class="swatch" style="background:' +
+
+            shades[0] +
+
+            '"></span>' +
+
+            name.charAt(0).toUpperCase() +
+
+            name.slice(1);
+
+        button.classList.toggle(
+
+            'active',
+
+            name === surface
+
+        );
+
+        button.onclick = () => {
+
+            surface = name;
+
+            for (
+
+                const b of
+
+                $('brushes').querySelectorAll('button')
+
+            ) {
+
+                b.classList.toggle(
+
+                    'active',
+
+                    b.dataset.surface === name
+
+                );
+
+            }
+
+            setMode('paint');
+
+            updateStatus();
+
+        };
+
+        $('brushes').appendChild(button);
+
+    }
+
+    function setMode(next) {
+
+        mode = next;
+
+        $('paintMode').classList.toggle(
+
+            'active',
+
+            mode === 'paint'
+
+        );
+
+        $('panMode').classList.toggle(
+
+            'active',
+
+            mode === 'pan'
+
+        );
+
+        canvas.style.cursor =
+
+            mode === 'pan' ? 'grab' : 'crosshair';
+
+        updateStatus();
+
+    }
+
+    function updateStatus() {
+
+        $('status').textContent =
+
+            town.width + ' × ' + town.height +
+
+            ' tiles | Zoom: ' +
+
+            Math.round(zoom * 100) + '% | ' +
+
+            (mode === 'paint'
+
+                ? 'Brush: ' + surface
+
+                : 'Map movement');
+
+        $('undo').disabled =
+
+            terrain.history.length === 0;
+
+    }
+
+    function pointerPosition(event) {
+
+        const rect = canvas.getBoundingClientRect();
+
+        return {
+
+            x: event.clientX - rect.left,
+
+            y: event.clientY - rect.top
+
+        };
+
+    }
+
+    // ==========================================
+    // POINTER & TOUCH INPUT
+    // ==========================================
+
+    canvas.addEventListener('pointerdown', e => {
+
+        if (drag || e.button !== 0) return;
+
+        const p = pointerPosition(e);
+
+        const tile = tileAt(p.x, p.y);
+
+        drag = {
+
+            id: e.pointerId,
+
+            mode,
+
+            x: p.x,
+
+            y: p.y,
+
+            tile
+
+        };
+
+        canvas.setPointerCapture(e.pointerId);
+
+        if (mode === 'paint') {
+
+            terrain.begin();
+
+            if (town.inside(tile.x, tile.y)) {
+
+                terrain.paint(
+
+                    tile.x,
+
+                    tile.y,
+
+                    surface,
+
+                    Number($('brushSize').value)
+
+                );
+
+            }
+
+            redraw();
+
+        } else {
+
+            canvas.style.cursor = 'grabbing';
+
+        }
+
+    });
+
+    canvas.addEventListener('pointermove', e => {
+
+        if (!drag || drag.id !== e.pointerId) return;
+
+        const p = pointerPosition(e);
+
+        if (drag.mode === 'pan') {
+
+            offsetX += p.x - drag.x;
+
+            offsetY += p.y - drag.y;
+
+        } else {
+
+            const tile = tileAt(p.x, p.y);
+
+            if (town.inside(tile.x, tile.y)) {
+
+                if (
+
+                    town.inside(
+
+                        drag.tile.x,
+
+                        drag.tile.y
+
+                    )
+
+                ) {
+
+                    terrain.line(
+
+                        drag.tile.x,
+
+                        drag.tile.y,
+
+                        tile.x,
+
+                        tile.y,
+
+                        surface,
+
+                        Number($('brushSize').value)
+
+                    );
+
+                } else {
+
+                    terrain.paint(
+
+                        tile.x,
+
+                        tile.y,
+
+                        surface,
+
+                        Number($('brushSize').value)
+
+                    );
+
+                }
+
+            }
+
+            drag.tile = tile;
+
+        }
+
+        drag.x = p.x;
+
+        drag.y = p.y;
+
+        redraw();
+
+    });
+
+    function finishPointer(e) {
+
+        if (!drag || drag.id !== e.pointerId) return;
+
+        terrain.end();
+
+        drag = null;
+
+        canvas.style.cursor =
+
+            mode === 'pan' ? 'grab' : 'crosshair';
+
+        redraw();
+
+    }
+
+    canvas.addEventListener(
+
+        'pointerup',
+
+        finishPointer
+
+    );
+
+    canvas.addEventListener(
+
+        'pointercancel',
+
+        finishPointer
+
+    );
+
+    canvas.addEventListener(
+
+        'lostpointercapture',
+
+        finishPointer
+
+    );
+
+    canvas.addEventListener('wheel', e => {
+
+        e.preventDefault();
+
+        const p = pointerPosition(e);
+
+        changeZoom(
+
+            e.deltaY < 0 ? 1.12 : 1 / 1.12,
+
+            p.x,
+
+            p.y
+
+        );
+
+    }, { passive: false });
+
+    // ==========================================
+    // BUTTON CONNECTIONS
+    // ==========================================
+
+    $('generate').onclick =
+
+        () => generateWorld(true);
+
+    $('paintMode').onclick =
+
+        () => setMode('paint');
+
+    $('panMode').onclick =
+
+        () => setMode('pan');
+
+    $('undo').onclick = () => {
+
+        terrain.undo();
+
+        redraw();
+
+    };
+
+    $('brushSize').oninput = () => {
+
+        $('brushLabel').textContent =
+
+            $('brushSize').value;
+
+    };
+
+    $('fit').onclick = fitMap;
+
+    $('zoomIn').onclick = () => {
+
+        changeZoom(
+
+            1.25,
+
+            canvas.clientWidth / 2,
+
+            canvas.clientHeight / 2
+
+        );
+
+    };
+
+    $('zoomOut').onclick = () => {
+
+        changeZoom(
+
+            0.8,
+
+            canvas.clientWidth / 2,
+
+            canvas.clientHeight / 2
+
+        );
+
+    };
+
+    // ==========================================
+    // AUTOMATED TERRAIN TESTS
+    // ==========================================
+
+    let passed = 0;
+
+    let failed = 0;
+
+    function test(name, check) {
+
+        const row = document.createElement('div');
+
+        row.className = 'test-row';
+
+        const label = document.createElement('span');
+
+        label.textContent = name;
+
+        const result = document.createElement('strong');
+
+        try {
+
+            if (!check()) throw new Error('Failed');
+
+            result.textContent = 'PASS';
+
+            result.className = 'pass';
+
+            passed++;
+
+        } catch (error) {
+
+            result.textContent = 'FAIL';
+
+            result.className = 'fail';
+
+            result.title = error.message;
+
+            failed++;
+
+        }
+
+        row.append(label, result);
+
+        $('tests').appendChild(row);
+
+    }
+
+    function testWorld() {
+
+        const t = new TownEngine({
+
+            width: 48,
+
+            height: 48
+
+        });
+
+        return {
+
+            t,
+
+            editor: new TownTerrain(t)
+
+        };
+
+    }
+
+    test('Coastal generation includes beaches and water', () => {
+
+        const {t, editor} = testWorld();
+
+        editor.generate('coast', 42);
+
+        return t.terrain.includes('grass') &&
+
+            t.terrain.includes('sand') &&
+
+            t.terrain.includes('water');
+
+    });
+
+    test('Same seed reproduces the same landscape', () => {
+
+        const {t, editor} = testWorld();
+
+        editor.generate('coast', 42);
+
+        const original = t.terrain.join(',');
+
+        editor.generate('coast', 42);
+
+        return original === t.terrain.join(',');
+
+    });
+
+    test('Flat world generation', () => {
+
+        const {t, editor} = testWorld();
+
+        editor.generate('flat', 42);
+
+        return t.terrain.every(s => s === 'grass');
+
+    });
+
+    test('Continuous terrain painting', () => {
+
+        const {t, editor} = testWorld();
+
+        editor.line(0, 0, 8, 0, 'water');
+
+        return t.terrain.slice(0, 9)
+
+            .every(s => s === 'water');
+
+    });
+
+    test('Undo restores original terrain', () => {
+
+        const {t, editor} = testWorld();
+
+        editor.line(0, 0, 8, 0, 'water');
+
+        editor.undo();
+
+        return t.terrain.every(s => s === 'grass');
+
+    });
+
+    test('Land reclamation works', () => {
+
+        const {t, editor} = testWorld();
+
+        editor.paint(5, 5, 'water');
+
+        editor.paint(5, 5, 'sand');
+
+        return t.getTerrain(5, 5) === 'sand';
+
+    });
+
+    test('Landscaping protects occupied buildings', () => {
+
+        const {t, editor} = testWorld();
+
+        t.register('house', {cost: 100});
+
+        const building = t.place('house', 0, 0);
+
+        return building.ok &&
+
+            editor.paint(0, 0, 'water') === 0 &&
+
+            t.getTerrain(0, 0) === 'grass';
+
+    });
+
+    test('World generation protects existing towns', () => {
+
+        const {t, editor} = testWorld();
+
+        t.register('house', {cost: 100});
+
+        t.place('house', 0, 0);
+
+        return !editor.generate('island', 42) &&
+
+            t.buildings.size === 1;
+
+    });
+
+    $('summary').textContent =
+
+        passed + ' tests passed · ' +
+
+        failed + ' tests failed';
+
+    $('summary').className =
+
+        failed ? 'fail' : 'pass';
+
+    // ==========================================
+    // INITIALISE
+    // ==========================================
+
+    generateWorld();
+
+    new ResizeObserver(resize).observe(canvas);
+
+})();
+
+</script>
+
+</body>
+
+</html>
