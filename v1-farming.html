@@ -1,0 +1,2188 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1">
+
+<title>Town Builder V1.0 — Farming</title>
+
+<style>
+
+* {
+    box-sizing:border-box;
+}
+
+body {
+    margin:0;
+    background:#101e18;
+    color:#edf4e9;
+    font-family:Arial,sans-serif;
+}
+
+header {
+    padding:18px;
+    background:#1b3024;
+    border-bottom:1px solid #405747;
+}
+
+h1 {
+    font-size:22px;
+    margin:0 0 6px;
+    color:#c2e3a4;
+}
+
+h2 {
+    font-size:16px;
+    margin:0 0 12px;
+    color:#c6dfb7;
+}
+
+h3 {
+    font-size:15px;
+}
+
+.muted {
+    font-size:13px;
+    color:#abc0ac;
+    line-height:1.6;
+}
+
+.workspace {
+    display:grid;
+    grid-template-columns:240px minmax(0,1fr);
+    gap:12px;
+    padding:12px;
+}
+
+.panel {
+    min-width:0;
+    padding:14px;
+    background:#1b2e24;
+    border:1px solid #405747;
+    border-radius:12px;
+}
+
+.stats {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:14px;
+}
+
+.stat {
+    background:#294335;
+    border:1px solid #45614b;
+    border-radius:8px;
+    padding:10px 14px;
+    font-size:14px;
+}
+
+button,select,input {
+    font:inherit;
+    color:#eff6e9;
+    background:#304b38;
+    border:1px solid #4c694e;
+    border-radius:8px;
+    padding:10px;
+}
+
+button {
+    cursor:pointer;
+}
+
+button:hover {
+    filter:brightness(1.15);
+}
+
+button:disabled {
+    opacity:.4;
+    cursor:default;
+}
+
+button.active {
+    background:#486d41;
+    border-color:#c3e89c;
+}
+
+button.confirm {
+    background:#488f50;
+}
+
+button.cancel {
+    background:#934a43;
+}
+
+button.rotate {
+    background:#365b83;
+}
+
+.wide {
+    display:block;
+    width:100%;
+    margin:6px 0;
+}
+
+label {
+    display:block;
+    font-size:12px;
+    color:#b9ceb9;
+    margin:12px 0 6px;
+}
+
+select,input {
+    width:100%;
+}
+
+.toolbar {
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+    margin-bottom:10px;
+}
+
+.catalogue {
+    display:grid;
+    gap:7px;
+}
+
+.catalogue button {
+    text-align:left;
+    width:100%;
+}
+
+.catalogue small {
+    display:block;
+    color:#abc0ac;
+    margin-top:4px;
+}
+
+.actions {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:7px;
+    margin-bottom:10px;
+}
+
+.map {
+    display:grid;
+    grid-template-columns:repeat(16,minmax(0,1fr));
+    gap:1px;
+    padding:4px;
+    background:#42583c;
+    border-radius:8px;
+    overflow:hidden;
+}
+
+.tile {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    aspect-ratio:1;
+    width:100%;
+    min-width:0;
+    padding:0;
+    border:0;
+    border-radius:1px;
+    background:#91b775;
+    color:#263b26;
+    font-size:clamp(9px,2.3vw,26px);
+    line-height:1;
+    overflow:hidden;
+    touch-action:manipulation;
+}
+
+.tile:nth-child(odd) {
+    background:#99bf7c;
+}
+
+.tile.field {
+    background:
+        repeating-linear-gradient(
+            90deg,
+            #a27a4e 0%,
+            #a27a4e 15%,
+            #775335 16%,
+            #775335 24%
+        );
+}
+
+.tile.planted {
+    background:
+        repeating-linear-gradient(
+            90deg,
+            #9a764a 0%,
+            #9a764a 15%,
+            #6d934b 16%,
+            #6d934b 24%
+        );
+}
+
+.tile.growing {
+    background:
+        repeating-linear-gradient(
+            90deg,
+            #658e45 0%,
+            #658e45 18%,
+            #416d35 19%,
+            #416d35 25%
+        );
+}
+
+.tile.maturing {
+    background:
+        repeating-linear-gradient(
+            90deg,
+            #a0ad4d 0%,
+            #a0ad4d 18%,
+            #66883c 19%,
+            #66883c 25%
+        );
+}
+
+.tile.ready {
+    background:
+        repeating-linear-gradient(
+            90deg,
+            #e2bd50 0%,
+            #e2bd50 18%,
+            #ac943f 19%,
+            #ac943f 25%
+        );
+}
+
+.tile.pen {
+    background:#bdd092;
+    border:1px solid #7e6946;
+}
+
+.tile.storage {
+    background:#b4a287;
+}
+
+.tile.greenhouse {
+    border:1px solid #d3f2e7;
+}
+
+.tile.selected {
+    box-shadow:inset 0 0 0 2px #fff2b0;
+}
+
+.tile.preview-valid {
+    box-shadow:inset 0 0 0 3px #d6ff9a;
+}
+
+.tile.preview-invalid {
+    box-shadow:inset 0 0 0 3px #ff7467;
+}
+
+.tile.preview-remove {
+    box-shadow:inset 0 0 0 3px #ff7467;
+}
+
+.section {
+    background:#263e2e;
+    border-radius:9px;
+    margin-top:12px;
+    padding:12px;
+}
+
+.capacity {
+    height:10px;
+    background:#12241b;
+    border-radius:10px;
+    overflow:hidden;
+}
+
+#storageBar {
+    height:100%;
+    background:#83bd77;
+}
+
+.valid {
+    color:#b2e99f;
+}
+
+.invalid {
+    color:#ffaaa0;
+}
+
+.warning {
+    color:#e9c775;
+}
+
+.hidden {
+    display:none!important;
+}
+
+.table-wrap {
+    overflow-x:auto;
+}
+
+table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+}
+
+th,td {
+    padding:8px 6px;
+    text-align:left;
+    border-bottom:1px solid #405747;
+}
+
+td button {
+    font-size:12px;
+    padding:7px;
+    margin:2px;
+}
+
+.bottom {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    padding:0 12px 12px;
+}
+
+.log {
+    max-height:260px;
+    overflow:auto;
+    font-size:13px;
+    color:#b7cbb4;
+    line-height:1.7;
+}
+
+.test {
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    padding:8px 0;
+    border-bottom:1px solid #405747;
+    font-size:13px;
+}
+
+.test-panel {
+    margin:0 12px 12px;
+}
+
+a {
+    color:#b9e0a6;
+}
+
+footer {
+    padding:16px;
+    font-size:13px;
+}
+
+@media(max-width:720px) {
+
+    .workspace,.bottom {
+        grid-template-columns:1fr;
+    }
+
+    .catalogue {
+        grid-template-columns:1fr 1fr;
+    }
+
+    .catalogue button {
+        font-size:12px;
+    }
+
+    .actions button {
+        font-size:12px;
+        padding:10px 4px;
+    }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+    <h1>Town Builder V1.0</h1>
+
+    <div class="muted">
+
+        Development Workspace — Farming & Agriculture
+
+    </div>
+
+    <div class="stats">
+
+        <div class="stat">
+
+            Day: <strong id="day">1</strong>
+
+        </div>
+
+        <div class="stat">
+
+            Cash: <strong id="cash"></strong>
+
+        </div>
+
+        <div class="stat">
+
+            Stored: <strong id="stored"></strong>
+
+        </div>
+
+        <div class="stat">
+
+            Produce revenue: <strong id="revenue"></strong>
+
+        </div>
+
+        <div class="stat">
+
+            Operating costs: <strong id="expenses"></strong>
+
+        </div>
+
+    </div>
+
+</header>
+
+<div class="workspace">
+
+    <aside class="panel">
+
+        <h2>Agricultural construction</h2>
+
+        <div id="catalogue" class="catalogue"></div>
+
+        <h3>Farming supplies</h3>
+
+        <button id="buyFeed" class="wide">
+
+            Buy 10 animal feed — £30
+
+        </button>
+
+        <button id="makeFeed" class="wide">
+
+            Convert 10 wheat into feed
+
+        </button>
+
+        <p class="muted">
+
+            Harvested crops and animal products
+            share your available storage space.
+
+        </p>
+
+        <button id="reset" class="wide cancel">
+
+            Reset test farm
+
+        </button>
+
+    </aside>
+
+    <section class="panel">
+
+        <h2>Farm management</h2>
+
+        <div class="toolbar">
+
+            <button id="nextDay" class="confirm">
+
+                ☀ Advance 1 day
+
+            </button>
+
+            <button id="nextThree">
+
+                Advance 3 days
+
+            </button>
+
+            <button id="harvestAll">
+
+                Harvest all ready fields
+
+            </button>
+
+        </div>
+
+        <div id="placement" class="hidden">
+
+            <div id="placementInfo"
+                 class="muted"></div>
+
+            <div class="actions">
+
+                <button id="cancel" class="cancel">
+
+                    ✕ Cancel
+
+                </button>
+
+                <button id="rotate" class="rotate">
+
+                    ↻ Rotate
+
+                </button>
+
+                <button id="confirm" class="confirm">
+
+                    ✓ Build
+
+                </button>
+
+            </div>
+
+        </div>
+
+        <p id="message" class="valid"></p>
+
+        <div id="map" class="map"></div>
+
+        <div id="details"
+             class="section hidden">
+
+            <h3 id="selectedName"></h3>
+
+            <p id="selectedStatus"
+               class="muted"></p>
+
+            <div id="cropControls"
+                 class="hidden">
+
+                <label for="crop">
+
+                    Choose crop
+
+                </label>
+
+                <select id="crop"></select>
+
+                <p id="cropInfo"
+                   class="muted"></p>
+
+                <div class="toolbar">
+
+                    <button id="plant"
+                            class="confirm">
+
+                        Plant crop
+
+                    </button>
+
+                    <button id="harvest"
+                            class="confirm">
+
+                        Harvest crop
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div id="animalControls"
+                 class="hidden">
+
+                <label for="animal">
+
+                    Choose livestock
+
+                </label>
+
+                <select id="animal"></select>
+
+                <label for="quantity">
+
+                    Number of animals
+
+                </label>
+
+                <input id="quantity"
+                       type="number"
+                       min="1"
+                       max="6"
+                       step="1"
+                       value="1">
+
+                <p id="animalInfo"
+                   class="muted"></p>
+
+                <div class="toolbar">
+
+                    <button id="buyAnimals"
+                            class="confirm">
+
+                        Purchase livestock
+
+                    </button>
+
+                    <button id="sellAnimals">
+
+                        Sell selected quantity
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div class="toolbar">
+
+                <button id="move">
+
+                    Move
+
+                </button>
+
+                <button id="demolish"
+                        class="cancel">
+
+                    Demolish
+
+                </button>
+
+            </div>
+
+        </div>
+
+        <p class="muted">
+
+            Select an empty field to plant crops.
+            Select a livestock enclosure to purchase
+            animals. Advance the day to grow crops
+            and collect animal products.
+
+        </p>
+
+    </section>
+
+</div>
+
+<div class="bottom">
+
+    <section class="panel">
+
+        <h2>Produce & storage</h2>
+
+        <p id="storageInfo"></p>
+
+        <div class="capacity">
+
+            <div id="storageBar"></div>
+
+        </div>
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Produce</th>
+                        <th>Stock</th>
+                        <th>Price</th>
+                        <th>Sell</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="inventory"></tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+    <section class="panel">
+
+        <h2>Farm activity</h2>
+
+        <div id="log" class="log"></div>
+
+    </section>
+
+</div>
+
+<section class="panel test-panel">
+
+    <h2>Farming engine tests</h2>
+
+    <div id="tests"></div>
+
+    <h3 id="summary"></h3>
+
+</section>
+
+<footer>
+
+    <a href="./v1-utilities.html">Utilities</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-transport.html">Transport</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-construction.html">Construction</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-terrain.html">Terrain</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./index.html">Existing game</a>
+
+</footer>
+
+<script src="./js/engine.js"></script>
+<script src="./js/construction.js"></script>
+<script src="./js/farming.js"></script>
+
+<script>
+
+(() => {
+
+'use strict';
+
+const $=id=>document.getElementById(id);
+
+const CROPS=TownFarmCrops;
+
+const ANIMALS=TownFarmAnimals;
+
+const PRODUCTS=TownFarmProducts;
+
+const BUILDINGS=TownFarmBuildings;
+
+const WIDTH=16;
+
+const HEIGHT=12;
+
+const ICONS={
+
+    farmField:'🌱',
+
+    largeField:'🌱',
+
+    greenhouse:'🌿',
+
+    animalPen:'🐾',
+
+    farmBarn:'🏚️',
+
+    grainSilo:'🌾',
+
+    farmWarehouse:'📦'
+
+};
+
+let town;
+
+let farm;
+
+let construction;
+
+let selected=null;
+
+let message='';
+
+let messageOK=true;
+
+const tiles=[];
+
+// ==========================================
+// TEST FARM CREATION
+// ==========================================
+
+function reset(ask=false) {
+
+    if (
+
+        ask &&
+
+        !confirm('Reset this test farm?')
+
+    ) return;
+
+    town=new TownEngine({
+
+        width:WIDTH,
+
+        height:HEIGHT,
+
+        cash:10000
+
+    });
+
+    farm=new TownFarming(town);
+
+    construction=new TownConstruction(town);
+
+    // Starter agricultural buildings
+
+    town.place('farmField',2,2);
+
+    town.place('farmField',5,2);
+
+    town.place('animalPen',2,6);
+
+    // Free starter animal feed
+
+    farm.deposit('feed',12);
+
+    farm.sync();
+
+    selected=null;
+
+    setMessage(
+
+        'Starter farm ready. Select an empty field.'
+
+    );
+
+    update();
+
+}
+
+function setMessage(text,ok=true) {
+
+    message=text;
+
+    messageOK=ok;
+
+}
+
+function showResult(result,success) {
+
+    setMessage(
+
+        result.ok ? success : result.reason,
+
+        result.ok
+
+    );
+
+    update();
+
+}
+
+// ==========================================
+// BUILDING CATALOGUE
+// ==========================================
+
+for (const [id,d] of Object.entries(BUILDINGS)) {
+
+    const button=document.createElement('button');
+
+    button.dataset.type=id;
+
+    button.textContent=ICONS[id]+' '+d.name;
+
+    const detail=document.createElement('small');
+
+    detail.textContent=
+
+        '£'+d.cost+' · '+
+
+        d.width+' × '+d.height;
+
+    button.appendChild(detail);
+
+    button.onclick=()=>{
+
+        construction.select(id);
+
+        selected=null;
+
+        setMessage('Choose a building location.');
+
+        update();
+
+    };
+
+    $('catalogue').appendChild(button);
+
+}
+
+// ==========================================
+// CROP AND ANIMAL SELECTION
+// ==========================================
+
+for (const [id,c] of Object.entries(CROPS)) {
+
+    const option=document.createElement('option');
+
+    option.value=id;
+
+    option.textContent=c.icon+' '+c.name;
+
+    $('crop').appendChild(option);
+
+}
+
+for (const [id,a] of Object.entries(ANIMALS)) {
+
+    const option=document.createElement('option');
+
+    option.value=id;
+
+    option.textContent=a.icon+' '+a.name;
+
+    $('animal').appendChild(option);
+
+}
+
+// ==========================================
+// FARM MAP
+// ==========================================
+
+for (let y=0;y<HEIGHT;y++) {
+
+    for (let x=0;x<WIDTH;x++) {
+
+        const button=document.createElement('button');
+
+        button.className='tile';
+
+        button.setAttribute(
+
+            'aria-label',
+
+            'Tile '+x+', '+y
+
+        );
+
+        button.onclick=()=>{
+
+            if (construction.pending) {
+
+                construction.target(x,y);
+
+                setMessage(
+
+                    'Adjust or confirm the preview.'
+
+                );
+
+            } else {
+
+                selected=
+
+                    construction.buildingAt(x,y)?.id
+
+                    ?? null;
+
+                setMessage(
+
+                    selected!==null
+
+                        ? 'Agricultural property selected.'
+
+                        : 'Select a field or building.'
+
+                );
+
+            }
+
+            update();
+
+        };
+
+        tiles.push({x,y,button});
+
+        $('map').appendChild(button);
+
+    }
+
+}
+
+// ==========================================
+// RENDER CROP AND ANIMAL APPEARANCE
+// ==========================================
+
+function renderMap() {
+
+    const p=construction.pending;
+
+    const f=construction.footprint();
+
+    const check=construction.preview();
+
+    for (const {x,y,button} of tiles) {
+
+        button.className='tile';
+
+        button.textContent='';
+
+        button.title='Empty grass tile';
+
+        const b=construction.buildingAt(x,y);
+
+        if (b) {
+
+            const d=BUILDINGS[b.type];
+
+            const localIndex=
+
+                (y-b.y)*b.width+(x-b.x);
+
+            button.title=d.name;
+
+            if (d.kind==='field') {
+
+                button.classList.add('field');
+
+                const field=farm.fields.get(b.id);
+
+                const stage=farm.stage(b.id);
+
+                if (b.type==='greenhouse') {
+
+                    button.classList.add('greenhouse');
+
+                }
+
+                if (field?.crop) {
+
+                    const c=CROPS[field.crop];
+
+                    if (stage==='Planted') {
+
+                        button.classList.add('planted');
+
+                        button.textContent='🌱';
+
+                    } else if (stage==='Growing') {
+
+                        button.classList.add('growing');
+
+                        button.textContent='🌿';
+
+                    } else if (stage==='Maturing') {
+
+                        button.classList.add('maturing');
+
+                        button.textContent=c.icon;
+
+                    } else {
+
+                        button.classList.add('ready');
+
+                        button.textContent=c.icon;
+
+                    }
+
+                    button.title=
+
+                        c.name+' — '+stage;
+
+                }
+
+            } else if (d.kind==='pen') {
+
+                button.classList.add('pen');
+
+                const pen=farm.pens.get(b.id);
+
+                if (
+
+                    pen?.animal &&
+
+                    localIndex<pen.count
+
+                ) {
+
+                    button.textContent=
+
+                        ANIMALS[pen.animal].icon;
+
+                }
+
+                button.title=
+
+                    d.name+' — '+
+
+                    (pen?.count||0)+' animals';
+
+            } else {
+
+                button.classList.add('storage');
+
+                if (!localIndex) {
+
+                    button.textContent=ICONS[b.type];
+
+                }
+
+            }
+
+            if (b.id===selected) {
+
+                button.classList.add('selected');
+
+            }
+
+        }
+
+        // Construction preview
+
+        if (
+
+            p && f &&
+
+            f.x!==null && f.y!==null &&
+
+            x>=f.x &&
+
+            y>=f.y &&
+
+            x<f.x+f.width &&
+
+            y<f.y+f.height
+
+        ) {
+
+            button.classList.add(
+
+                p.action==='remove'
+
+                    ? 'preview-remove'
+
+                    : check.ok
+
+                        ? 'preview-valid'
+
+                        : 'preview-invalid'
+
+            );
+
+            if (
+
+                p.action!=='remove' &&
+
+                x===f.x && y===f.y
+
+            ) {
+
+                button.textContent=ICONS[p.type];
+
+            }
+
+        }
+
+    }
+
+}
+
+// ==========================================
+// FARM PROPERTY MANAGEMENT
+// ==========================================
+
+function updateDetails() {
+
+    const b=town.buildings.get(selected);
+
+    const p=construction.pending;
+
+    $('details').classList.toggle(
+
+        'hidden',!b || !!p
+
+    );
+
+    if (!b || p) return;
+
+    const d=BUILDINGS[b.type];
+
+    $('selectedName').textContent=
+
+        ICONS[b.type]+' '+d.name;
+
+    $('cropControls').classList.toggle(
+
+        'hidden',d.kind!=='field'
+
+    );
+
+    $('animalControls').classList.toggle(
+
+        'hidden',d.kind!=='pen'
+
+    );
+
+    if (d.kind==='field') {
+
+        const field=farm.fields.get(b.id);
+
+        const crop=CROPS[$('crop').value];
+
+        const area=b.width*b.height;
+
+        const days=b.type==='greenhouse'
+
+            ? Math.max(1,crop.days-1)
+
+            : crop.days;
+
+        $('selectedStatus').textContent=
+
+            field.crop
+
+                ? CROPS[field.crop].name+' · '+
+
+                  farm.stage(b.id)+' · '+
+
+                  field.age+'/'+
+
+                  farm.growingDays(b.id)+' days'
+
+                : 'Empty field — choose a crop';
+
+        $('cropInfo').textContent=
+
+            'Planting: £'+crop.seedCost*area+
+
+            ' | Growing time: '+days+' days'+
+
+            ' | Harvest: '+
+
+            crop.yieldPerTile*area+' units';
+
+        $('crop').disabled=!!field.crop;
+
+        $('plant').disabled=!!field.crop;
+
+        $('harvest').disabled=
+
+            farm.stage(b.id)!=='Ready to harvest';
+
+    } else if (d.kind==='pen') {
+
+        const pen=farm.pens.get(b.id);
+
+        if (pen.animal) {
+
+            $('animal').value=pen.animal;
+
+        }
+
+        const a=ANIMALS[$('animal').value];
+
+        const quantity=Number($('quantity').value);
+
+        $('selectedStatus').textContent=
+
+            pen.count+'/'+d.capacity+
+
+            ' animals · '+pen.status;
+
+        $('animal').disabled=pen.count>0;
+
+        $('animalInfo').textContent=
+
+            'Purchase: £'+a.cost*quantity+
+
+            ' | Feed: '+a.feed+
+
+            ' per animal/day'+
+
+            ' | Production: '+a.yieldPerDay+
+
+            ' '+PRODUCTS[a.product].name+
+
+            ' per animal/day';
+
+        $('buyAnimals').disabled=
+
+            !Number.isInteger(quantity) ||
+
+            quantity<1 ||
+
+            pen.count+quantity>d.capacity;
+
+        $('sellAnimals').disabled=
+
+            !Number.isInteger(quantity) ||
+
+            quantity<1 ||
+
+            quantity>pen.count;
+
+    } else {
+
+        $('selectedStatus').textContent=
+
+            'Adds '+d.capacity+
+
+            ' units of shared produce storage.';
+
+    }
+
+}
+
+// ==========================================
+// LIVE INVENTORY AND SELLING
+// ==========================================
+
+function renderInventory() {
+
+    $('inventory').replaceChildren();
+
+    for (const [id,quantity] of farm.stock) {
+
+        const d=PRODUCTS[id];
+
+        const row=document.createElement('tr');
+
+        for (
+
+            const value of
+
+            [
+
+                d.icon+' '+d.name,
+
+                quantity,
+
+                '£'+d.price
+
+            ]
+
+        ) {
+
+            const cell=document.createElement('td');
+
+            cell.textContent=value;
+
+            row.appendChild(cell);
+
+        }
+
+        const actions=document.createElement('td');
+
+        for (const amount of [1,quantity]) {
+
+            if (
+
+                amount===1 &&
+
+                actions.children.length
+
+            ) continue;
+
+            const button=document.createElement('button');
+
+            button.textContent=
+
+                amount===quantity
+
+                    ? 'Sell all'
+
+                    : 'Sell 1';
+
+            button.onclick=()=>{
+
+                const result=farm.sell(id,amount);
+
+                showResult(
+
+                    result,
+
+                    'Sale completed for £'+
+
+                    (result.income||0)+'.'
+
+                );
+
+            };
+
+            actions.appendChild(button);
+
+        }
+
+        row.appendChild(actions);
+
+        $('inventory').appendChild(row);
+
+    }
+
+    if (!farm.stock.size) {
+
+        const row=document.createElement('tr');
+
+        const cell=document.createElement('td');
+
+        cell.colSpan=4;
+
+        cell.textContent='Storage is empty.';
+
+        row.appendChild(cell);
+
+        $('inventory').appendChild(row);
+
+    }
+
+}
+
+// ==========================================
+// CONSTRUCTION MANAGEMENT
+// ==========================================
+
+function updateConstruction() {
+
+    const p=construction.pending;
+
+    $('placement').classList.toggle(
+
+        'hidden',!p
+
+    );
+
+    if (!p) return;
+
+    const f=construction.footprint();
+
+    const check=construction.preview();
+
+    const removal=p.action==='remove'
+
+        ? farm.canRemove(p.id)
+
+        : {ok:true};
+
+    $('placementInfo').textContent=
+
+        BUILDINGS[p.type].name+' · '+
+
+        f.width+' × '+f.height+' tiles · '+
+
+        (
+            !removal.ok
+
+                ? removal.reason
+
+                : !check.ok
+
+                    ? check.reason
+
+                    : p.action==='remove'
+
+                        ? 'Confirm demolition'
+
+                        : 'Cost: £'+check.cost
+        );
+
+    $('placementInfo').className=
+
+        check.ok && removal.ok
+
+            ? 'valid'
+
+            : 'invalid';
+
+    $('confirm').disabled=
+
+        !check.ok || !removal.ok;
+
+    $('confirm').textContent=
+
+        p.action==='remove'
+
+            ? '✓ Demolish'
+
+            : p.action==='move'
+
+                ? '✓ Move'
+
+                : '✓ Build';
+
+    $('rotate').disabled=p.action==='remove';
+
+}
+
+$('confirm').onclick=()=>{
+
+    const p=construction.pending;
+
+    if (!p) return;
+
+    if (p.action==='remove') {
+
+        const check=farm.canRemove(p.id);
+
+        if (!check.ok) {
+
+            showResult(check,'');
+
+            return;
+
+        }
+
+    }
+
+    const result=construction.confirm();
+
+    if (result.ok) {
+
+        selected=result.building?.id??null;
+
+        farm.sync();
+
+    }
+
+    showResult(result,'Construction action complete.');
+
+};
+
+$('cancel').onclick=()=>{
+
+    construction.cancel();
+
+    setMessage('Action cancelled.');
+
+    update();
+
+};
+
+$('rotate').onclick=()=>{
+
+    construction.rotate();
+
+    update();
+
+};
+
+$('move').onclick=()=>{
+
+    construction.beginMove(selected);
+
+    setMessage('Choose a new location.');
+
+    update();
+
+};
+
+$('demolish').onclick=()=>{
+
+    const check=farm.canRemove(selected);
+
+    if (!check.ok) {
+
+        showResult(check,'');
+
+        return;
+
+    }
+
+    construction.beginRemove(selected);
+
+    setMessage('Confirm or cancel demolition.');
+
+    update();
+
+};
+
+// ==========================================
+// FARMING BUTTONS
+// ==========================================
+
+$('crop').onchange=updateDetails;
+
+$('animal').onchange=updateDetails;
+
+$('quantity').oninput=updateDetails;
+
+$('plant').onclick=()=>{
+
+    showResult(
+
+        farm.plant(selected,$('crop').value),
+
+        'Crop planted successfully.'
+
+    );
+
+};
+
+$('harvest').onclick=()=>{
+
+    showResult(
+
+        farm.harvest(selected),
+
+        'Harvest transferred to storage.'
+
+    );
+
+};
+
+$('buyAnimals').onclick=()=>{
+
+    showResult(
+
+        farm.buyAnimals(
+
+            selected,
+
+            $('animal').value,
+
+            Number($('quantity').value)
+
+        ),
+
+        'Livestock purchased.'
+
+    );
+
+};
+
+$('sellAnimals').onclick=()=>{
+
+    showResult(
+
+        farm.sellAnimals(
+
+            selected,
+
+            Number($('quantity').value)
+
+        ),
+
+        'Livestock sold.'
+
+    );
+
+};
+
+$('buyFeed').onclick=()=>{
+
+    showResult(
+
+        farm.buyFeed(10),
+
+        'Animal feed added to storage.'
+
+    );
+
+};
+
+$('makeFeed').onclick=()=>{
+
+    showResult(
+
+        farm.makeFeed(10),
+
+        'Wheat converted into animal feed.'
+
+    );
+
+};
+
+$('nextDay').onclick=()=>{
+
+    showResult(
+
+        farm.advance(1),
+
+        'A new farming day has begun.'
+
+    );
+
+};
+
+$('nextThree').onclick=()=>{
+
+    showResult(
+
+        farm.advance(3),
+
+        'Three farming days completed.'
+
+    );
+
+};
+
+$('harvestAll').onclick=()=>{
+
+    let count=0;
+
+    let blocked=0;
+
+    for (const id of farm.fields.keys()) {
+
+        if (
+
+            farm.stage(id)!=='Ready to harvest'
+
+        ) continue;
+
+        if (farm.harvest(id).ok) {
+
+            count++;
+
+        } else {
+
+            blocked++;
+
+        }
+
+    }
+
+    setMessage(
+
+        count+' fields harvested. '+
+
+        (
+            blocked
+
+                ? blocked+' blocked by storage capacity.'
+
+                : 'All ready fields processed.'
+        ),
+
+        !blocked
+
+    );
+
+    update();
+
+};
+
+$('reset').onclick=()=>reset(true);
+
+// ==========================================
+// UPDATE THE COMPLETE WORKSPACE
+// ==========================================
+
+function update() {
+
+    farm.sync();
+
+    $('day').textContent=farm.day;
+
+    $('cash').textContent=
+
+        '£'+town.cash.toLocaleString('en-GB');
+
+    $('stored').textContent=
+
+        farm.used()+'/'+farm.capacity();
+
+    $('revenue').textContent=
+
+        '£'+farm.revenue.toLocaleString('en-GB');
+
+    $('expenses').textContent=
+
+        '£'+farm.expenses.toLocaleString('en-GB');
+
+    $('storageInfo').textContent=
+
+        farm.used()+' / '+farm.capacity()+
+
+        ' units used · '+farm.freeSpace()+
+
+        ' available';
+
+    $('storageBar').style.width=
+
+        Math.min(
+
+            100,
+
+            farm.used()/farm.capacity()*100
+
+        )+'%';
+
+    $('storageBar').style.background=
+
+        farm.freeSpace()
+
+            ? '#83bd77'
+
+            : '#d48662';
+
+    $('message').textContent=message;
+
+    $('message').className=
+
+        messageOK ? 'valid' : 'invalid';
+
+    $('buyFeed').disabled=
+
+        farm.freeSpace()<10 || town.cash<30;
+
+    $('makeFeed').disabled=
+
+        farm.amount('wheat')<10;
+
+    for (
+
+        const button of
+
+        $('catalogue').querySelectorAll('button')
+
+    ) {
+
+        button.classList.toggle(
+
+            'active',
+
+            construction.pending?.action==='build' &&
+
+            construction.pending.type===button.dataset.type
+
+        );
+
+    }
+
+    updateConstruction();
+
+    renderMap();
+
+    updateDetails();
+
+    renderInventory();
+
+    $('log').replaceChildren();
+
+    for (const text of farm.messages) {
+
+        const line=document.createElement('div');
+
+        line.textContent=text;
+
+        $('log').appendChild(line);
+
+    }
+
+}
+
+// ==========================================
+// AUTOMATED FARMING TESTS
+// ==========================================
+
+let passed=0;
+
+let failed=0;
+
+function test(name,fn) {
+
+    const row=document.createElement('div');
+
+    row.className='test';
+
+    const label=document.createElement('span');
+
+    label.textContent=name;
+
+    const result=document.createElement('strong');
+
+    try {
+
+        if (!fn()) throw new Error('Check failed');
+
+        result.textContent='PASS';
+
+        result.className='valid';
+
+        passed++;
+
+    } catch(error) {
+
+        result.textContent='FAIL';
+
+        result.className='invalid';
+
+        result.title=error.message;
+
+        failed++;
+
+    }
+
+    row.append(label,result);
+
+    $('tests').appendChild(row);
+
+}
+
+function fixture() {
+
+    const t=new TownEngine({
+
+        width:16,
+
+        height:12,
+
+        cash:10000
+
+    });
+
+    const f=new TownFarming(t);
+
+    const field=t.place('farmField',1,1).building.id;
+
+    const pen=t.place('animalPen',5,1).building.id;
+
+    f.sync();
+
+    return {t,f,field,pen};
+
+}
+
+test('All 18 crops registered',()=>{
+
+    return Object.keys(CROPS).length===18;
+
+});
+
+test('All six livestock types registered',()=>{
+
+    return Object.keys(ANIMALS).length===6;
+
+});
+
+test('Empty fields can be planted',()=>{
+
+    const {f,field}=fixture();
+
+    return f.plant(field,'wheat').ok &&
+
+        f.stage(field)==='Planted';
+
+});
+
+test('Planting charges correct seed cost',()=>{
+
+    const {t,f,field}=fixture();
+
+    const cash=t.cash;
+
+    return f.plant(field,'wheat').ok &&
+
+        t.cash===cash-8;
+
+});
+
+test('Premature harvesting is prevented',()=>{
+
+    const {f,field}=fixture();
+
+    f.plant(field,'wheat');
+
+    return !f.harvest(field).ok;
+
+});
+
+test('Crops mature as days advance',()=>{
+
+    const {f,field}=fixture();
+
+    f.plant(field,'wheat');
+
+    f.advance(3);
+
+    return f.stage(field)==='Ready to harvest';
+
+});
+
+test('Harvest enters inventory',()=>{
+
+    const {f,field}=fixture();
+
+    f.plant(field,'wheat');
+
+    f.advance(3);
+
+    return f.harvest(field).ok &&
+
+        f.amount('wheat')===24;
+
+});
+
+test('Harvested field accepts a different crop',()=>{
+
+    const {f,field}=fixture();
+
+    f.plant(field,'wheat');
+
+    f.advance(3);
+
+    f.harvest(field);
+
+    return f.plant(field,'carrot').ok;
+
+});
+
+test('Full storage prevents harvest without crop loss',()=>{
+
+    const {f,field}=fixture();
+
+    f.deposit('feed',60);
+
+    f.plant(field,'wheat');
+
+    f.advance(3);
+
+    return !f.harvest(field).ok &&
+
+        f.stage(field)==='Ready to harvest';
+
+});
+
+test('Barn construction increases storage capacity',()=>{
+
+    const {t,f}=fixture();
+
+    const result=t.place('farmBarn',10,1);
+
+    return result.ok && f.capacity()===210;
+
+});
+
+test('Selling produce generates town income',()=>{
+
+    const {t,f}=fixture();
+
+    f.deposit('wheat',10);
+
+    const cash=t.cash;
+
+    return f.sell('wheat',10).ok &&
+
+        t.cash===cash+50 &&
+
+        f.amount('wheat')===0;
+
+});
+
+test('Livestock enclosure capacity is enforced',()=>{
+
+    const {f,pen}=fixture();
+
+    return f.buyAnimals(pen,'chicken',6).ok &&
+
+        !f.buyAnimals(pen,'chicken',1).ok;
+
+});
+
+test('Fed livestock produces daily goods',()=>{
+
+    const {f,pen}=fixture();
+
+    f.buyAnimals(pen,'chicken',2);
+
+    f.deposit('feed',10);
+
+    f.advance();
+
+    return f.amount('eggs')===4 &&
+
+        f.amount('feed')===8;
+
+});
+
+test('Unfed livestock does not produce goods',()=>{
+
+    const {f,pen}=fixture();
+
+    f.buyAnimals(pen,'cow',1);
+
+    f.advance();
+
+    return f.amount('milk')===0 &&
+
+        f.pens.get(pen).status==='Needs animal feed';
+
+});
+
+test('Wheat can be converted into livestock feed',()=>{
+
+    const {f}=fixture();
+
+    f.deposit('wheat',10);
+
+    return f.makeFeed(10).ok &&
+
+        f.amount('wheat')===0 &&
+
+        f.amount('feed')===10;
+
+});
+
+test('Planted fields are protected from demolition',()=>{
+
+    const {f,field}=fixture();
+
+    f.plant(field,'wheat');
+
+    return !f.canRemove(field).ok;
+
+});
+
+test('Occupied livestock pens are protected',()=>{
+
+    const {f,pen}=fixture();
+
+    f.buyAnimals(pen,'goat',1);
+
+    return !f.canRemove(pen).ok;
+
+});
+
+test('Relocation preserves growing crops',()=>{
+
+    const {t,f,field}=fixture();
+
+    f.plant(field,'wheat');
+
+    f.advance();
+
+    const moved=t.move(field,1,7);
+
+    f.sync();
+
+    return moved.ok &&
+
+        f.fields.get(field).crop==='wheat' &&
+
+        f.fields.get(field).age===1;
+
+});
+
+$('summary').textContent=
+
+    passed+' tests passed · '+
+
+    failed+' tests failed';
+
+$('summary').className=
+
+    failed ? 'invalid' : 'valid';
+
+// ==========================================
+// INITIALISE
+// ==========================================
+
+reset();
+
+})();
+
+</script>
+
+</body>
+
+</html>
