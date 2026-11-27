@@ -1,0 +1,1842 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width,initial-scale=1">
+
+<title>Town Builder V1.0 — Utilities</title>
+
+<style>
+
+* {
+    box-sizing:border-box;
+}
+
+body {
+    margin:0;
+    background:#101e18;
+    color:#edf4e9;
+    font-family:Arial,sans-serif;
+}
+
+header {
+    padding:18px;
+    background:#1b3024;
+    border-bottom:1px solid #405747;
+}
+
+h1 {
+    font-size:22px;
+    color:#c2e3a4;
+    margin:0 0 6px;
+}
+
+h2 {
+    font-size:16px;
+    margin:0 0 12px;
+    color:#c6dfb7;
+}
+
+h3 {
+    font-size:15px;
+}
+
+.muted {
+    font-size:13px;
+    line-height:1.6;
+    color:#abc0ac;
+}
+
+.workspace {
+    display:grid;
+    grid-template-columns:250px minmax(0,1fr);
+    gap:12px;
+    padding:12px;
+}
+
+.panel {
+    min-width:0;
+    padding:14px;
+    background:#1b2e24;
+    border:1px solid #405747;
+    border-radius:12px;
+}
+
+button {
+    font:inherit;
+    padding:11px;
+    background:#304b38;
+    border:1px solid #4c694e;
+    border-radius:8px;
+    color:#eff6e9;
+    cursor:pointer;
+}
+
+button:hover {
+    filter:brightness(1.15);
+}
+
+button:disabled {
+    opacity:.4;
+    cursor:default;
+}
+
+button.active {
+    background:#486d41;
+    border-color:#c3e89c;
+}
+
+.utility-button {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    text-align:left;
+    margin-bottom:8px;
+}
+
+.swatch {
+    display:inline-block;
+    width:14px;
+    height:14px;
+    border-radius:4px;
+    flex-shrink:0;
+}
+
+.wide {
+    width:100%;
+    margin-top:8px;
+}
+
+.toolbar {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:10px;
+}
+
+.actions {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+}
+
+.confirm {
+    background:#488f50;
+}
+
+.cancel {
+    background:#934a43;
+}
+
+.rotate {
+    background:#365b83;
+}
+
+.valid {
+    color:#b2e99f;
+}
+
+.invalid {
+    color:#ffaaa0;
+}
+
+.warning {
+    color:#e9c775;
+}
+
+.stats {
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+    margin-bottom:12px;
+}
+
+.stat {
+    background:#294335;
+    border:1px solid #405747;
+    border-radius:8px;
+    padding:12px;
+}
+
+.stat span {
+    color:#b3c5b2;
+    font-size:12px;
+    display:block;
+    margin-bottom:5px;
+}
+
+.stat strong {
+    font-size:20px;
+}
+
+canvas {
+    display:block;
+    width:100%;
+    height:auto;
+    background:#193126;
+    border-radius:8px;
+    touch-action:none;
+    cursor:crosshair;
+}
+
+.capacity {
+    height:10px;
+    background:#14251d;
+    border-radius:10px;
+    overflow:hidden;
+    margin:8px 0;
+}
+
+.capacity-fill {
+    height:100%;
+    width:0;
+    background:#83bd77;
+    transition:width .15s;
+}
+
+.table-wrap {
+    overflow-x:auto;
+}
+
+table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+}
+
+th,td {
+    text-align:left;
+    padding:10px 8px;
+    border-bottom:1px solid #405747;
+}
+
+th {
+    color:#b8ceba;
+}
+
+.test-panel {
+    margin:0 12px 12px;
+}
+
+.test {
+    display:flex;
+    justify-content:space-between;
+    gap:15px;
+    padding:9px 0;
+    border-bottom:1px solid #405747;
+    font-size:13px;
+}
+
+a {
+    color:#b9e0a6;
+}
+
+footer {
+    padding:16px;
+    font-size:13px;
+}
+
+@media(max-width:720px) {
+
+    .workspace {
+        grid-template-columns:1fr;
+    }
+
+    .stats {
+        grid-template-columns:repeat(2,1fr);
+    }
+
+    .actions button {
+        padding:10px 5px;
+        font-size:12px;
+    }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+    <h1>Town Builder V1.0</h1>
+
+    <div class="muted">
+
+        Development Workspace — Utility Networks
+
+    </div>
+
+    <h3>
+
+        Town funds: <span id="cash"></span>
+
+    </h3>
+
+</header>
+
+<div class="workspace">
+
+    <aside class="panel">
+
+        <h2>Utility infrastructure</h2>
+
+        <div id="utilities"></div>
+
+        <p id="price" class="muted"></p>
+
+        <button id="buildMode"
+                class="wide active">
+
+            Install network
+
+        </button>
+
+        <button id="eraseMode"
+                class="wide cancel">
+
+            Remove network
+
+        </button>
+
+        <h3>Map overlays</h3>
+
+        <button id="showAll"
+                class="wide">
+
+            Show all networks
+
+        </button>
+
+        <h3>Instructions</h3>
+
+        <p class="muted">
+
+            Select a utility, then drag a route
+            from its supplier to the buildings
+            requiring that service.
+
+        </p>
+
+        <p class="muted">
+
+            Underground lines can run beneath
+            buildings and can share tiles with
+            other utility networks.
+
+        </p>
+
+        <button id="reset" class="wide">
+
+            Reset test town
+
+        </button>
+
+    </aside>
+
+    <section class="panel">
+
+        <h2 id="networkTitle">Electricity</h2>
+
+        <div class="stats">
+
+            <div class="stat">
+
+                <span>Installed capacity</span>
+
+                <strong id="supply">0</strong>
+
+            </div>
+
+            <div class="stat">
+
+                <span>Connected capacity</span>
+
+                <strong id="connected">0</strong>
+
+            </div>
+
+            <div class="stat">
+
+                <span>Town demand</span>
+
+                <strong id="demand">0</strong>
+
+            </div>
+
+            <div class="stat">
+
+                <span>Demand supplied</span>
+
+                <strong id="served">0</strong>
+
+            </div>
+
+        </div>
+
+        <div class="capacity">
+
+            <div id="capacity"
+                 class="capacity-fill"></div>
+
+        </div>
+
+        <p id="coverage" class="muted"></p>
+
+        <div class="actions">
+
+            <button id="cancel" class="cancel">
+
+                ✕ Cancel
+
+            </button>
+
+            <button id="bend" class="rotate">
+
+                ↱ Change bend
+
+            </button>
+
+            <button id="confirm" class="confirm">
+
+                ✓ Install
+
+            </button>
+
+        </div>
+
+        <p id="validation">
+
+            Choose a starting tile.
+
+        </p>
+
+        <canvas id="map"
+                width="900"
+                height="600"></canvas>
+
+        <p class="muted">
+
+            Green buildings are fully supplied.
+            Amber buildings are partially supplied.
+            Red buildings have no service.
+
+        </p>
+
+        <h3>Building service report</h3>
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Building</th>
+                        <th>Supply</th>
+                        <th>Demand</th>
+                        <th>Received</th>
+                        <th>Status</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="report"></tbody>
+
+            </table>
+
+        </div>
+
+        <p id="message" class="muted"></p>
+
+    </section>
+
+</div>
+
+<section class="panel test-panel">
+
+    <h2>Utility engine tests</h2>
+
+    <div id="tests"></div>
+
+    <h3 id="summary"></h3>
+
+</section>
+
+<footer>
+
+    <a href="./v1-transport.html">Transport</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-construction.html">Construction</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-terrain.html">Terrain</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-test.html">Core tests</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./index.html">Existing game</a>
+
+</footer>
+
+<script src="./js/engine.js"></script>
+<script src="./js/utilities.js"></script>
+
+<script>
+
+(() => {
+
+'use strict';
+
+const $=id=>document.getElementById(id);
+
+const canvas=$('map');
+
+const ctx=canvas.getContext('2d');
+
+const TYPES=TownUtilityTypes;
+
+const SIZE=50;
+
+const WIDTH=18;
+
+const HEIGHT=12;
+
+const definitions=[
+
+    {
+        id:'solar',
+        name:'Solar power plant',
+        icon:'☀️',
+        label:'Power',
+        x:2,y:1,
+        width:2,height:2,
+        power:{supply:40}
+    },
+
+    {
+        id:'waterTower',
+        name:'Water tower',
+        icon:'💧',
+        label:'Water',
+        x:2,y:4,
+        width:2,height:2,
+        water:{supply:60}
+    },
+
+    {
+        id:'sewagePlant',
+        name:'Sewage treatment plant',
+        icon:'⚙️',
+        label:'Sewage',
+        x:2,y:7,
+        width:2,height:2,
+        sewage:{supply:40}
+    },
+
+    {
+        id:'telecomTower',
+        name:'Telecommunications tower',
+        icon:'📡',
+        label:'Fibre',
+        x:2,y:10,
+        width:2,height:1,
+        telecom:{supply:60}
+    },
+
+    {
+        id:'house1',
+        name:'Country cottage',
+        icon:'🏡',
+        label:'House 1',
+        x:10,y:1,
+        width:2,height:2,
+        power:{demand:8},
+        water:{demand:10},
+        sewage:{demand:8},
+        telecom:{demand:5}
+    },
+
+    {
+        id:'house2',
+        name:'Family home',
+        icon:'🏠',
+        label:'House 2',
+        x:14,y:1,
+        width:2,height:2,
+        power:{demand:8},
+        water:{demand:10},
+        sewage:{demand:8},
+        telecom:{demand:5}
+    },
+
+    {
+        id:'shop',
+        name:'Local shop',
+        icon:'🏪',
+        label:'Shop',
+        x:10,y:5,
+        width:2,height:2,
+        power:{demand:10},
+        water:{demand:5},
+        sewage:{demand:4},
+        telecom:{demand:8}
+    },
+
+    {
+        id:'factory',
+        name:'Factory',
+        icon:'🏭',
+        label:'Factory',
+        x:14,y:5,
+        width:3,height:2,
+        power:{demand:30},
+        water:{demand:25},
+        sewage:{demand:20},
+        telecom:{demand:10}
+    },
+
+    {
+        id:'apartments',
+        name:'Apartment building',
+        icon:'🏢',
+        label:'Flats',
+        x:10,y:9,
+        width:3,height:2,
+        power:{demand:14},
+        water:{demand:20},
+        sewage:{demand:15},
+        telecom:{demand:15}
+    }
+
+];
+
+const catalog=new Map(
+
+    definitions.map(d=>[d.id,d])
+
+);
+
+let town;
+
+let utilities;
+
+let type='power';
+
+let erase=false;
+
+let allNetworks=false;
+
+let start=null;
+
+let end=null;
+
+let draft=null;
+
+let xFirst=true;
+
+let pointer=null;
+
+let report=null;
+
+let message='Connect the utility suppliers to the town.';
+
+// ==========================================
+// PREBUILT TEST TOWN
+// ==========================================
+
+function clearPlan() {
+
+    start=null;
+
+    end=null;
+
+    draft=null;
+
+}
+
+function reset(ask=false) {
+
+    if (
+
+        ask &&
+
+        !confirm('Reset this utility test town?')
+
+    ) return;
+
+    town=new TownEngine({
+
+        width:WIDTH,
+
+        height:HEIGHT,
+
+        cash:15000
+
+    });
+
+    utilities=new TownUtilities(town);
+
+    for (const d of definitions) {
+
+        town.register(d.id,{
+
+            name:d.name,
+
+            width:d.width,
+
+            height:d.height,
+
+            cost:0
+
+        });
+
+        utilities.register(d.id,d);
+
+        town.place(d.id,d.x,d.y);
+
+    }
+
+    clearPlan();
+
+    pointer=null;
+
+    message='New test town created.';
+
+    update();
+
+}
+
+// ==========================================
+// UTILITY SELECTION
+// ==========================================
+
+for (const [key,d] of Object.entries(TYPES)) {
+
+    const button=document.createElement('button');
+
+    button.className='utility-button';
+
+    button.dataset.type=key;
+
+    const swatch=document.createElement('span');
+
+    swatch.className='swatch';
+
+    swatch.style.background=d.color;
+
+    button.append(
+
+        swatch,
+
+        document.createTextNode(d.name)
+
+    );
+
+    button.onclick=()=>{
+
+        type=key;
+
+        erase=false;
+
+        clearPlan();
+
+        message='Selected '+d.name+'.';
+
+        update();
+
+    };
+
+    $('utilities').appendChild(button);
+
+}
+
+// ==========================================
+// DRAW GROUND
+// ==========================================
+
+function drawGround() {
+
+    for (let y=0;y<HEIGHT;y++) {
+
+        for (let x=0;x<WIDTH;x++) {
+
+            ctx.fillStyle=(x+y)%2
+
+                ? '#91b775'
+
+                : '#96bd79';
+
+            ctx.fillRect(
+
+                x*SIZE,y*SIZE,SIZE,SIZE
+
+            );
+
+            ctx.strokeStyle='rgba(35,65,30,.16)';
+
+            ctx.lineWidth=1;
+
+            ctx.strokeRect(
+
+                x*SIZE,y*SIZE,SIZE,SIZE
+
+            );
+
+        }
+
+    }
+
+    // Decorative existing town roads
+
+    ctx.fillStyle='#78817c';
+
+    ctx.fillRect(
+
+        7*SIZE,0,SIZE,HEIGHT*SIZE
+
+    );
+
+    ctx.fillRect(
+
+        7*SIZE,3*SIZE,
+
+        11*SIZE,SIZE
+
+    );
+
+    ctx.fillRect(
+
+        7*SIZE,8*SIZE,
+
+        11*SIZE,SIZE
+
+    );
+
+    ctx.strokeStyle='#dddacb';
+
+    ctx.setLineDash([10,10]);
+
+    ctx.beginPath();
+
+    ctx.moveTo(7.5*SIZE,0);
+
+    ctx.lineTo(7.5*SIZE,HEIGHT*SIZE);
+
+    ctx.stroke();
+
+    ctx.setLineDash([]);
+
+}
+
+// ==========================================
+// DRAW BUILDING SERVICE STATUS
+// ==========================================
+
+function drawBuildings() {
+
+    for (const b of town.buildings.values()) {
+
+        const d=catalog.get(b.type);
+
+        const row=report.buildings.get(b.id);
+
+        const x=b.x*SIZE;
+
+        const y=b.y*SIZE;
+
+        const w=b.width*SIZE;
+
+        const h=b.height*SIZE;
+
+        let color='#b4b9b1';
+
+        if (row?.supply) {
+
+            color=row.component===null
+
+                ? '#c5bca0'
+
+                : TYPES[type].color;
+
+        } else if (row?.demand) {
+
+            color=row.served===0
+
+                ? '#d28076'
+
+                : row.served<row.demand
+
+                    ? '#e5bd68'
+
+                    : '#8bd28a';
+
+        }
+
+        ctx.fillStyle='rgba(0,0,0,.18)';
+
+        ctx.fillRect(
+
+            x+7,y+8,w-10,h-10
+
+        );
+
+        ctx.fillStyle=color;
+
+        ctx.fillRect(
+
+            x+4,y+4,w-8,h-8
+
+        );
+
+        ctx.strokeStyle='#52634f';
+
+        ctx.lineWidth=2;
+
+        ctx.strokeRect(
+
+            x+4,y+4,w-8,h-8
+
+        );
+
+        ctx.textAlign='center';
+
+        ctx.textBaseline='middle';
+
+        ctx.font='25px Arial';
+
+        ctx.fillStyle='#26362a';
+
+        ctx.fillText(
+
+            d.icon,
+
+            x+w/2,
+
+            y+h/2-9
+
+        );
+
+        ctx.font='bold 12px Arial';
+
+        ctx.fillText(
+
+            d.label,
+
+            x+w/2,
+
+            y+h/2+14
+
+        );
+
+    }
+
+}
+
+// ==========================================
+// DRAW CONNECTED UNDERGROUND NETWORKS
+// ==========================================
+
+function drawNetwork(key,tiles,preview=false) {
+
+    const d=TYPES[key];
+
+    const offset=allNetworks
+
+        ? Object.keys(TYPES).indexOf(key)*5-7.5
+
+        : 0;
+
+    ctx.save();
+
+    ctx.lineCap='round';
+
+    ctx.lineJoin='round';
+
+    ctx.lineWidth=5;
+
+    ctx.strokeStyle=d.color;
+
+    ctx.fillStyle=d.color;
+
+    ctx.globalAlpha=preview ? .75 : 1;
+
+    if (preview) {
+
+        ctx.setLineDash([7,5]);
+
+    }
+
+    for (const k of tiles) {
+
+        const x=k%WIDTH;
+
+        const y=Math.floor(k/WIDTH);
+
+        const cx=x*SIZE+SIZE/2+offset;
+
+        const cy=y*SIZE+SIZE/2+offset;
+
+        ctx.beginPath();
+
+        ctx.arc(cx,cy,4,0,Math.PI*2);
+
+        ctx.fill();
+
+        for (const [dx,dy] of [[1,0],[0,1]]) {
+
+            const a=x+dx;
+
+            const b=y+dy;
+
+            if (
+
+                !town.inside(a,b) ||
+
+                !tiles.has(town.key(a,b))
+
+            ) continue;
+
+            ctx.beginPath();
+
+            ctx.moveTo(cx,cy);
+
+            ctx.lineTo(
+
+                cx+dx*SIZE,
+
+                cy+dy*SIZE
+
+            );
+
+            ctx.stroke();
+
+        }
+
+    }
+
+    ctx.restore();
+
+}
+
+// ==========================================
+// DRAW ROUTE PREVIEW
+// ==========================================
+
+function drawPreview() {
+
+    if (!draft) return;
+
+    const tiles=new Set();
+
+    for (const p of draft.cells) {
+
+        tiles.add(town.key(p.x,p.y));
+
+        ctx.fillStyle=draft.ok && !erase
+
+            ? 'rgba(190,255,150,.4)'
+
+            : 'rgba(255,90,80,.4)';
+
+        ctx.fillRect(
+
+            p.x*SIZE,
+
+            p.y*SIZE,
+
+            SIZE,
+
+            SIZE
+
+        );
+
+        ctx.strokeStyle=draft.ok && !erase
+
+            ? '#e2ffc7'
+
+            : '#ff7768';
+
+        ctx.lineWidth=2;
+
+        ctx.strokeRect(
+
+            p.x*SIZE+1,
+
+            p.y*SIZE+1,
+
+            SIZE-2,
+
+            SIZE-2
+
+        );
+
+    }
+
+    if (!erase) {
+
+        const combined=new Set([
+
+            ...utilities.lines[type],
+
+            ...tiles
+
+        ]);
+
+        drawNetwork(type,combined,true);
+
+    }
+
+}
+
+// ==========================================
+// COMPLETE MAP RENDER
+// ==========================================
+
+function render() {
+
+    ctx.clearRect(
+
+        0,0,canvas.width,canvas.height
+
+    );
+
+    drawGround();
+
+    drawBuildings();
+
+    const visible=allNetworks
+
+        ? Object.keys(TYPES)
+
+        : [type];
+
+    for (const key of visible) {
+
+        drawNetwork(
+
+            key,
+
+            utilities.lines[key]
+
+        );
+
+    }
+
+    drawPreview();
+
+}
+
+// ==========================================
+// LIVE BUILDING REPORT
+// ==========================================
+
+function renderReport() {
+
+    $('report').replaceChildren();
+
+    for (
+
+        const row of
+
+        report.buildings.values()
+
+    ) {
+
+        const tr=document.createElement('tr');
+
+        let status;
+
+        let style;
+
+        if (row.component===null) {
+
+            status='Disconnected';
+
+            style='invalid';
+
+        } else if (row.supply && !row.demand) {
+
+            status='Supplier connected';
+
+            style='valid';
+
+        } else if (row.served===0) {
+
+            status='No supply';
+
+            style='invalid';
+
+        } else if (row.served<row.demand) {
+
+            status='Partial supply';
+
+            style='warning';
+
+        } else {
+
+            status='Fully supplied';
+
+            style='valid';
+
+        }
+
+        const values=[
+
+            catalog.get(row.type).name,
+
+            row.supply,
+
+            row.demand,
+
+            row.served,
+
+            status
+
+        ];
+
+        values.forEach((value,i)=>{
+
+            const td=document.createElement('td');
+
+            td.textContent=value;
+
+            if (i===4) td.className=style;
+
+            tr.appendChild(td);
+
+        });
+
+        $('report').appendChild(tr);
+
+    }
+
+}
+
+// ==========================================
+// UPDATE CAPACITY AND INTERFACE
+// ==========================================
+
+function update() {
+
+    report=utilities.report(type);
+
+    draft=start && end
+
+        ? utilities.preview(
+
+            type,start,end,xFirst,erase
+
+        )
+
+        : null;
+
+    $('cash').textContent=
+
+        '£'+town.cash.toLocaleString('en-GB');
+
+    $('networkTitle').textContent=
+
+        TYPES[type].name;
+
+    $('price').textContent=
+
+        'Installation: £'+TYPES[type].cost+
+
+        ' per new tile';
+
+    $('supply').textContent=report.supply;
+
+    $('connected').textContent=
+
+        report.connectedSupply;
+
+    $('demand').textContent=report.demand;
+
+    $('served').textContent=report.served;
+
+    const percentage=report.demand
+
+        ? Math.round(
+
+            report.served/report.demand*100
+
+          )
+
+        : 100;
+
+    $('capacity').style.width=
+
+        percentage+'%';
+
+    $('coverage').textContent=
+
+        percentage+'% of demand supplied · '+
+
+        report.unmet+' units unmet';
+
+    $('coverage').className=
+
+        percentage===100
+
+            ? 'valid'
+
+            : 'warning';
+
+    $('confirm').disabled=!draft?.ok;
+
+    $('cancel').disabled=!start;
+
+    $('bend').disabled=!start;
+
+    $('confirm').textContent=
+
+        erase ? '✓ Remove' : '✓ Install';
+
+    $('validation').textContent=
+
+        !draft
+
+            ? 'Choose a starting tile.'
+
+            : draft.ok
+
+                ? erase
+
+                    ? 'Remove '+
+
+                      draft.cells.length+' tiles'
+
+                    : draft.cells.length+
+
+                      ' tiles · £'+draft.cost
+
+                : draft.reason;
+
+    $('validation').className=
+
+        !draft || draft.ok
+
+            ? 'valid'
+
+            : 'invalid';
+
+    $('buildMode').classList.toggle(
+
+        'active',!erase
+
+    );
+
+    $('eraseMode').classList.toggle(
+
+        'active',erase
+
+    );
+
+    $('showAll').classList.toggle(
+
+        'active',allNetworks
+
+    );
+
+    $('showAll').textContent=
+
+        allNetworks
+
+            ? 'Show selected network'
+
+            : 'Show all networks';
+
+    for (
+
+        const button of
+
+        $('utilities').querySelectorAll('button')
+
+    ) {
+
+        button.classList.toggle(
+
+            'active',
+
+            button.dataset.type===type
+
+        );
+
+    }
+
+    $('message').textContent=message;
+
+    renderReport();
+
+    render();
+
+}
+
+// ==========================================
+// CONFIRMED UTILITY CONSTRUCTION
+// ==========================================
+
+$('confirm').onclick=()=>{
+
+    if (!draft?.ok) return;
+
+    const result=utilities.commit(
+
+        type,start,end,xFirst,erase
+
+    );
+
+    if (result.ok) {
+
+        message=erase
+
+            ? 'Utility lines removed.'
+
+            : 'Network installed for £'+
+
+              result.cost+'.';
+
+        clearPlan();
+
+    } else {
+
+        message=result.reason;
+
+    }
+
+    update();
+
+};
+
+$('cancel').onclick=()=>{
+
+    clearPlan();
+
+    message='Cancelled. No money spent.';
+
+    update();
+
+};
+
+$('bend').onclick=()=>{
+
+    xFirst=!xFirst;
+
+    update();
+
+};
+
+$('buildMode').onclick=()=>{
+
+    erase=false;
+
+    clearPlan();
+
+    update();
+
+};
+
+$('eraseMode').onclick=()=>{
+
+    erase=true;
+
+    clearPlan();
+
+    update();
+
+};
+
+$('showAll').onclick=()=>{
+
+    allNetworks=!allNetworks;
+
+    update();
+
+};
+
+$('reset').onclick=()=>reset(true);
+
+// ==========================================
+// MOUSE AND TOUCH INPUT
+// ==========================================
+
+function tileAt(e) {
+
+    const rect=canvas.getBoundingClientRect();
+
+    const px=(e.clientX-rect.left)*
+
+        canvas.width/rect.width;
+
+    const py=(e.clientY-rect.top)*
+
+        canvas.height/rect.height;
+
+    return {
+
+        x:Math.floor(px/SIZE),
+
+        y:Math.floor(py/SIZE)
+
+    };
+
+}
+
+canvas.addEventListener('pointerdown',e=>{
+
+    if (pointer!==null || e.button!==0) return;
+
+    const tile=tileAt(e);
+
+    if (!town.inside(tile.x,tile.y)) return;
+
+    pointer=e.pointerId;
+
+    canvas.setPointerCapture(pointer);
+
+    if (!start) start=tile;
+
+    end=tile;
+
+    update();
+
+});
+
+canvas.addEventListener('pointermove',e=>{
+
+    if (pointer!==e.pointerId) return;
+
+    const tile=tileAt(e);
+
+    if (!town.inside(tile.x,tile.y)) return;
+
+    end=tile;
+
+    update();
+
+});
+
+function finish(e) {
+
+    if (pointer===e.pointerId) {
+
+        pointer=null;
+
+    }
+
+}
+
+canvas.addEventListener('pointerup',finish);
+
+canvas.addEventListener('pointercancel',finish);
+
+canvas.addEventListener('lostpointercapture',finish);
+
+// ==========================================
+// AUTOMATED UTILITY TESTS
+// ==========================================
+
+let passed=0;
+
+let failed=0;
+
+function test(name,fn) {
+
+    const row=document.createElement('div');
+
+    row.className='test';
+
+    const label=document.createElement('span');
+
+    label.textContent=name;
+
+    const result=document.createElement('strong');
+
+    try {
+
+        if (!fn()) throw new Error('Check failed');
+
+        result.textContent='PASS';
+
+        result.className='valid';
+
+        passed++;
+
+    } catch(error) {
+
+        result.textContent='FAIL';
+
+        result.className='invalid';
+
+        result.title=error.message;
+
+        failed++;
+
+    }
+
+    row.append(label,result);
+
+    $('tests').appendChild(row);
+
+}
+
+const p=(x,y)=>({x,y});
+
+function fixture() {
+
+    const t=new TownEngine({
+
+        width:12,
+
+        height:12,
+
+        cash:1000
+
+    });
+
+    t.register('plant');
+
+    t.register('house');
+
+    const u=new TownUtilities(t);
+
+    u.register('plant',{
+
+        power:{supply:20},
+
+        water:{supply:30}
+
+    });
+
+    u.register('house',{
+
+        power:{demand:12},
+
+        water:{demand:10}
+
+    });
+
+    t.place('plant',1,1);
+
+    t.place('house',6,1);
+
+    return {t,u};
+
+}
+
+test('Disconnected buildings receive no utilities',()=>{
+
+    const {u}=fixture();
+
+    return u.report('power').served===0;
+
+});
+
+test('Preview does not spend money',()=>{
+
+    const {t,u}=fixture();
+
+    const plan=u.preview(
+
+        'power',p(1,1),p(6,1)
+
+    );
+
+    return plan.ok &&
+
+        t.cash===1000 &&
+
+        u.lines.power.size===0;
+
+});
+
+test('Confirmed installation charges correct cost',()=>{
+
+    const {t,u}=fixture();
+
+    const result=u.commit(
+
+        'power',p(1,1),p(6,1)
+
+    );
+
+    return result.ok &&
+
+        result.cost===48 &&
+
+        t.cash===952;
+
+});
+
+test('Connected properties receive electricity',()=>{
+
+    const {u}=fixture();
+
+    u.commit('power',p(1,1),p(6,1));
+
+    return u.report('power').served===12;
+
+});
+
+test('Existing lines are not charged twice',()=>{
+
+    const {t,u}=fixture();
+
+    u.commit('power',p(1,1),p(6,1));
+
+    const cash=t.cash;
+
+    return u.commit(
+
+        'power',p(1,1),p(6,1)
+
+    ).cost===0 && t.cash===cash;
+
+});
+
+test('Supply cannot exceed available capacity',()=>{
+
+    const {t,u}=fixture();
+
+    t.place('house',7,1);
+
+    u.commit('power',p(1,1),p(7,1));
+
+    const r=u.report('power');
+
+    return r.demand===24 &&
+
+        r.served===20 &&
+
+        r.unmet===4;
+
+});
+
+test('Different utility networks share coordinates',()=>{
+
+    const {u}=fixture();
+
+    u.commit('power',p(1,1),p(6,1));
+
+    u.commit('water',p(1,1),p(6,1));
+
+    return u.lines.power.size===6 &&
+
+        u.lines.water.size===6 &&
+
+        u.report('water').served===10;
+
+});
+
+test('Removing a line disconnects its customers',()=>{
+
+    const {u}=fixture();
+
+    u.commit('power',p(1,1),p(6,1));
+
+    u.commit('power',p(3,1),p(3,1),true,true);
+
+    return u.report('power').served===0;
+
+});
+
+test('Removing electricity leaves water unaffected',()=>{
+
+    const {u}=fixture();
+
+    u.commit('power',p(1,1),p(6,1));
+
+    u.commit('water',p(1,1),p(6,1));
+
+    u.commit('power',p(3,1),p(3,1),true,true);
+
+    return u.report('power').served===0 &&
+
+        u.report('water').served===10;
+
+});
+
+test('Utility installation over water is rejected',()=>{
+
+    const {t,u}=fixture();
+
+    t.setTerrain(3,1,'water');
+
+    return !u.preview(
+
+        'power',p(1,1),p(6,1)
+
+    ).ok;
+
+});
+
+test('Insufficient funds prevent installation',()=>{
+
+    const {t,u}=fixture();
+
+    t.cash=0;
+
+    return !u.commit(
+
+        'power',p(1,1),p(6,1)
+
+    ).ok && u.lines.power.size===0;
+
+});
+
+test('Removing supplier eliminates its capacity',()=>{
+
+    const {t,u}=fixture();
+
+    u.commit('power',p(1,1),p(6,1));
+
+    const plant=[...t.buildings.values()]
+
+        .find(b=>b.type==='plant');
+
+    t.remove(plant.id);
+
+    return u.report('power').served===0 &&
+
+        u.report('power').supply===0;
+
+});
+
+$('summary').textContent=
+
+    passed+' tests passed · '+
+
+    failed+' tests failed';
+
+$('summary').className=
+
+    failed ? 'invalid' : 'valid';
+
+// ==========================================
+// INITIALISE
+// ==========================================
+
+reset();
+
+})();
+
+</script>
+
+</body>
+</html>
