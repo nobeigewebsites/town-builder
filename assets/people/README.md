@@ -1,0 +1,1 @@
+Residents and workers
