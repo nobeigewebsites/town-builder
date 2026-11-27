@@ -1,0 +1,2005 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1">
+
+<title>Town Builder V1.0 — Transport</title>
+
+<style>
+
+* {box-sizing:border-box}
+
+body {
+    margin:0;
+    background:#101e18;
+    color:#edf4e9;
+    font-family:Arial,sans-serif;
+}
+
+header {
+    padding:18px;
+    background:#1b3024;
+    border-bottom:1px solid #405747;
+}
+
+h1 {
+    font-size:22px;
+    color:#c2e3a4;
+    margin:0 0 6px;
+}
+
+h2 {
+    font-size:16px;
+    margin:0 0 12px;
+    color:#c6dfb7;
+}
+
+.subtitle,.muted {
+    font-size:13px;
+    color:#a8beaa;
+    line-height:1.6;
+}
+
+.stats {
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:12px;
+}
+
+.stat {
+    padding:9px 13px;
+    background:#294335;
+    border:1px solid #45614b;
+    border-radius:8px;
+    font-size:14px;
+}
+
+.workspace {
+    display:grid;
+    grid-template-columns:250px minmax(0,1fr);
+    gap:12px;
+    padding:12px;
+}
+
+.panel {
+    background:#1b2e24;
+    border:1px solid #405747;
+    padding:14px;
+    border-radius:12px;
+    min-width:0;
+}
+
+button,select {
+    font:inherit;
+    padding:11px;
+    color:#eff6e9;
+    background:#304b38;
+    border:1px solid #4c694e;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+button:hover {filter:brightness(1.15)}
+
+button:disabled {
+    opacity:.4;
+    cursor:default;
+}
+
+button.active {
+    background:#486d41;
+    border-color:#c3e89c;
+}
+
+label {
+    display:block;
+    font-size:12px;
+    color:#b8ceba;
+    margin:14px 0 6px;
+}
+
+select,.wide {width:100%}
+
+.wide {margin-top:8px}
+
+.toolbar {
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+    margin-bottom:8px;
+}
+
+.actions {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin-bottom:8px;
+}
+
+.confirm {
+    background:#488f50;
+    border-color:#79b87a;
+    font-weight:bold;
+}
+
+.cancel {
+    background:#934a43;
+    border-color:#b96258;
+}
+
+.rotate {
+    background:#365b83;
+    border-color:#5b87b5;
+}
+
+.valid {color:#b2e99f}
+
+.invalid {color:#ffaaa0}
+
+canvas {
+    display:block;
+    width:100%;
+    height:63vh;
+    min-height:350px;
+    background:#14271e;
+    border-radius:8px;
+    touch-action:none;
+    cursor:crosshair;
+}
+
+#validation {
+    min-height:20px;
+    font-size:13px;
+    margin:10px 0;
+}
+
+.test-panel {margin:0 12px 12px}
+
+.test {
+    display:flex;
+    justify-content:space-between;
+    padding:9px 0;
+    border-bottom:1px solid #405747;
+    font-size:13px;
+}
+
+a {color:#b9e0a6}
+
+footer {
+    padding:16px;
+    font-size:13px;
+}
+
+@media(max-width:720px) {
+
+    .workspace {
+        grid-template-columns:1fr;
+    }
+
+    canvas {
+        height:52vh;
+        min-height:300px;
+    }
+
+    .actions button {
+        font-size:12px;
+        padding:10px 5px;
+    }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+
+    <h1>Town Builder V1.0</h1>
+
+    <div class="subtitle">
+        Development Workspace — Transport Networks
+    </div>
+
+    <div class="stats">
+
+        <div class="stat">
+            Cash: <strong id="cash"></strong>
+        </div>
+
+        <div class="stat">
+            Surface tiles: <strong id="surfaceCount"></strong>
+        </div>
+
+        <div class="stat">
+            Underground tiles: <strong id="subCount"></strong>
+        </div>
+
+    </div>
+
+</header>
+
+<div class="workspace">
+
+    <aside class="panel">
+
+        <h2>Transport & Infrastructure</h2>
+
+        <label for="category">Transport category</label>
+
+        <select id="category"></select>
+
+        <label for="type">Construction type</label>
+
+        <select id="type"></select>
+
+        <p id="price" class="muted"></p>
+
+        <label for="layer">Network layer</label>
+
+        <select id="layer">
+
+            <option value="surface">
+                Surface
+            </option>
+
+            <option value="underground">
+                Underground
+            </option>
+
+        </select>
+
+        <button id="buildMode"
+                class="wide active">
+            Build transport
+        </button>
+
+        <button id="eraseMode"
+                class="wide cancel">
+            Remove transport
+        </button>
+
+        <p class="muted">
+
+            Drag across the map or select a start
+            and end tile. Adjust the route before
+            confirming construction.
+
+        </p>
+
+        <label for="landscape">
+            Test landscape
+        </label>
+
+        <select id="landscape">
+
+            <option value="coast">
+                Coastal
+            </option>
+
+            <option value="island">
+                Island
+            </option>
+
+            <option value="countryside">
+                Countryside
+            </option>
+
+            <option value="flat">
+                Flat land
+            </option>
+
+        </select>
+
+        <button id="reset" class="wide">
+            Reset test world
+        </button>
+
+    </aside>
+
+    <section class="panel">
+
+        <div class="toolbar">
+
+            <button id="edit" class="active">
+                Plan route
+            </button>
+
+            <button id="pan">
+                Move map
+            </button>
+
+            <button id="zoomIn">＋</button>
+
+            <button id="zoomOut">−</button>
+
+            <button id="fit">Fit map</button>
+
+        </div>
+
+        <div class="actions">
+
+            <button id="cancel" class="cancel">
+                ✕ Cancel
+            </button>
+
+            <button id="bend" class="rotate">
+                ↱ Change bend
+            </button>
+
+            <button id="confirm" class="confirm">
+                ✓ Build
+            </button>
+
+        </div>
+
+        <div id="validation"></div>
+
+        <canvas id="map"></canvas>
+
+        <p id="status" class="muted"></p>
+
+    </section>
+
+</div>
+
+<section class="panel test-panel">
+
+    <h2>Transport engine tests</h2>
+
+    <div id="tests"></div>
+
+    <h3 id="summary"></h3>
+
+</section>
+
+<footer>
+
+    <a href="./v1-construction.html">
+        Construction
+    </a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-terrain.html">
+        Terrain
+    </a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-test.html">
+        Core tests
+    </a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./index.html">
+        Existing game
+    </a>
+
+</footer>
+
+<script src="./js/engine.js"></script>
+<script src="./js/terrain.js"></script>
+<script src="./js/transport.js"></script>
+
+<script>
+
+(() => {
+
+'use strict';
+
+const $ = id => document.getElementById(id);
+
+const canvas = $('map');
+
+const ctx = canvas.getContext('2d');
+
+const TYPES = TownTransportTypes;
+
+const HW = 24;
+
+const HH = 12;
+
+const colours = {
+
+    grass:'#91bd68',
+
+    sand:'#e4d09b',
+
+    soil:'#92704a',
+
+    gravel:'#aaa89a',
+
+    paving:'#a6a9a4',
+
+    water:'#4999ba'
+
+};
+
+let town;
+
+let terrain;
+
+let network;
+
+let type = 'road';
+
+let layer = 'surface';
+
+let action = 'build';
+
+let mode = 'edit';
+
+let start = null;
+
+let end = null;
+
+let draft = null;
+
+let xFirst = true;
+
+let zoom = 1;
+
+let ox = 0;
+
+let oy = 0;
+
+let pointer = null;
+
+let framePending = false;
+
+let message = 'Select a start and end location.';
+
+// ==========================================
+// WORLD CREATION
+// ==========================================
+
+function resetWorld(ask=false) {
+
+    if (
+
+        ask &&
+
+        !confirm('Reset this transport test world?')
+
+    ) return;
+
+    town = new TownEngine({
+
+        width:40,
+
+        height:40,
+
+        cash:15000
+
+    });
+
+    terrain = new TownTerrain(town);
+
+    terrain.generate(
+
+        $('landscape').value,
+
+        42
+
+    );
+
+    network = new TownTransport(town);
+
+    clearPlan();
+
+    message = 'New transport test world created.';
+
+    fitMap();
+
+    update();
+
+}
+
+function clearPlan() {
+
+    start = null;
+
+    end = null;
+
+    draft = null;
+
+}
+
+// ==========================================
+// TRANSPORT MENU
+// ==========================================
+
+const categories = [
+
+    ...new Set(
+
+        Object.values(TYPES).map(t=>t.category)
+
+    )
+
+];
+
+for (const category of categories) {
+
+    const option = document.createElement('option');
+
+    option.value = category;
+
+    option.textContent = category;
+
+    $('category').appendChild(option);
+
+}
+
+function refreshTypes(preferred=null) {
+
+    $('type').replaceChildren();
+
+    for (const d of Object.values(TYPES)) {
+
+        if (d.category !== $('category').value) {
+
+            continue;
+
+        }
+
+        const option = document.createElement('option');
+
+        option.value = d.id;
+
+        option.textContent = d.name;
+
+        $('type').appendChild(option);
+
+    }
+
+    if (preferred) $('type').value = preferred;
+
+    type = $('type').value;
+
+    layer = TYPES[type].layer;
+
+    $('layer').value = layer;
+
+    action = 'build';
+
+    clearPlan();
+
+    if (town) update();
+
+}
+
+$('category').onchange =
+
+    () => refreshTypes();
+
+$('type').onchange = () => {
+
+    type = $('type').value;
+
+    layer = TYPES[type].layer;
+
+    $('layer').value = layer;
+
+    action = 'build';
+
+    clearPlan();
+
+    update();
+
+};
+
+$('layer').onchange = () => {
+
+    layer = $('layer').value;
+
+    if (layer === 'underground') {
+
+        $('category').value = 'Underground';
+
+        refreshTypes('subway');
+
+    } else {
+
+        $('category').value = 'Roads';
+
+        refreshTypes('road');
+
+    }
+
+};
+
+refreshTypes('road');
+
+// ==========================================
+// ISOMETRIC MAP
+// ==========================================
+
+function project(x,y) {
+
+    return [
+
+        (x-y)*HW,
+
+        (x+y)*HH
+
+    ];
+
+}
+
+function tileAt(px,py) {
+
+    const wx = (px-ox)/zoom;
+
+    const wy = (py-oy)/zoom;
+
+    return {
+
+        x:Math.floor((wy/HH+wx/HW)/2),
+
+        y:Math.floor((wy/HH-wx/HW)/2)
+
+    };
+
+}
+
+function localTile(x,y,draw) {
+
+    const p = project(x,y);
+
+    ctx.save();
+
+    ctx.transform(
+
+        HW,HH,-HW,HH,p[0],p[1]
+
+    );
+
+    draw();
+
+    ctx.restore();
+
+}
+
+function rect(x,y,w,h,color) {
+
+    ctx.fillStyle = color;
+
+    ctx.fillRect(x,y,w,h);
+
+}
+
+function line(x1,y1,x2,y2,color,width=.025) {
+
+    ctx.strokeStyle = color;
+
+    ctx.lineWidth = width;
+
+    ctx.beginPath();
+
+    ctx.moveTo(x1,y1);
+
+    ctx.lineTo(x2,y2);
+
+    ctx.stroke();
+
+}
+
+// ==========================================
+// SEAMLESS CONNECTED GRAPHICS
+// ==========================================
+
+function drawNetwork(x,y,id,mask,alpha=1) {
+
+    const d = TYPES[id];
+
+    if (!d) return;
+
+    localTile(x,y,()=>{
+
+        ctx.globalAlpha *= alpha;
+
+        const half = d.width/2;
+
+        const low = .5-half;
+
+        const high = .5+half;
+
+        // Standalone pieces display straight.
+        // Connected pieces use neighbour directions.
+
+        const m = mask || 10;
+
+        // Continuous centre surface
+
+        rect(
+
+            low,low,
+
+            d.width,d.width,
+
+            d.color
+
+        );
+
+        // NORTH
+
+        if (m&1) {
+
+            rect(low,0,d.width,.5,d.color);
+
+        }
+
+        // EAST
+
+        if (m&2) {
+
+            rect(.5,low,.5,d.width,d.color);
+
+        }
+
+        // SOUTH
+
+        if (m&4) {
+
+            rect(low,.5,d.width,.5,d.color);
+
+        }
+
+        // WEST
+
+        if (m&8) {
+
+            rect(0,low,.5,d.width,d.color);
+
+        }
+
+        // ROAD MARKINGS
+
+        if (
+
+            d.family === 'road' ||
+
+            d.family === 'air'
+
+        ) {
+
+            const color =
+
+                id === 'taxiway'
+
+                    ? '#ebcf59'
+
+                    : '#eeeade';
+
+            if (id !== 'lane') {
+
+                ctx.setLineDash([.12,.10]);
+
+                if (m&1) {
+
+                    line(.5,0,.5,.5,color);
+
+                }
+
+                if (m&2) {
+
+                    line(.5,.5,1,.5,color);
+
+                }
+
+                if (m&4) {
+
+                    line(.5,.5,.5,1,color);
+
+                }
+
+                if (m&8) {
+
+                    line(0,.5,.5,.5,color);
+
+                }
+
+                ctx.setLineDash([]);
+
+            }
+
+        }
+
+        // RAILWAY TRACKS
+
+        if (
+
+            ['rail','tram','subway']
+
+                .includes(d.family)
+
+        ) {
+
+            const gauge = .14;
+
+            const railColor = '#555c61';
+
+            // Sleepers
+
+            for (let i=0;i<5;i++) {
+
+                const p = (i+.5)/5;
+
+                if (
+
+                    (p<.5 && (m&8)) ||
+
+                    (p>=.5 && (m&2))
+
+                ) {
+
+                    rect(
+
+                        p-.035,.24,.07,.52,
+
+                        '#77624d'
+
+                    );
+
+                }
+
+                if (
+
+                    (p<.5 && (m&1)) ||
+
+                    (p>=.5 && (m&4))
+
+                ) {
+
+                    rect(
+
+                        .24,p-.035,.52,.07,
+
+                        '#77624d'
+
+                    );
+
+                }
+
+            }
+
+            // Parallel rails
+
+            for (const g of [-gauge,gauge]) {
+
+                if (m&1) {
+
+                    line(
+
+                        .5+g,0,.5+g,.5,
+
+                        railColor,.045
+
+                    );
+
+                }
+
+                if (m&2) {
+
+                    line(
+
+                        .5,.5+g,1,.5+g,
+
+                        railColor,.045
+
+                    );
+
+                }
+
+                if (m&4) {
+
+                    line(
+
+                        .5+g,.5,.5+g,1,
+
+                        railColor,.045
+
+                    );
+
+                }
+
+                if (m&8) {
+
+                    line(
+
+                        0,.5+g,.5,.5+g,
+
+                        railColor,.045
+
+                    );
+
+                }
+
+            }
+
+        }
+
+        // ======================================
+        // CONTINUOUS RAILWAY PLATFORMS
+        // ======================================
+
+        if (d.family === 'platform') {
+
+            const stripe = '#ebcb63';
+
+            const a = low+.055;
+
+            const b = high-.055;
+
+            if (m&1) {
+
+                line(a,0,a,.5,stripe,.045);
+
+                line(b,0,b,.5,stripe,.045);
+
+            }
+
+            if (m&2) {
+
+                line(.5,a,1,a,stripe,.045);
+
+                line(.5,b,1,b,stripe,.045);
+
+            }
+
+            if (m&4) {
+
+                line(a,.5,a,1,stripe,.045);
+
+                line(b,.5,b,1,stripe,.045);
+
+            }
+
+            if (m&8) {
+
+                line(0,a,.5,a,stripe,.045);
+
+                line(0,b,.5,b,stripe,.045);
+
+            }
+
+        }
+
+        // BRIDGE EDGE INDICATORS
+
+        if (d.bridge) {
+
+            const edge = '#e2ded0';
+
+            if (m&1) {
+
+                line(low,0,low,.5,edge,.045);
+
+                line(high,0,high,.5,edge,.045);
+
+            }
+
+            if (m&2) {
+
+                line(.5,low,1,low,edge,.045);
+
+                line(.5,high,1,high,edge,.045);
+
+            }
+
+            if (m&4) {
+
+                line(low,.5,low,1,edge,.045);
+
+                line(high,.5,high,1,edge,.045);
+
+            }
+
+            if (m&8) {
+
+                line(0,low,.5,low,edge,.045);
+
+                line(0,high,.5,high,edge,.045);
+
+            }
+
+        }
+
+    });
+
+}
+
+// ==========================================
+// RENDER MAP AND NETWORKS
+// ==========================================
+
+function render() {
+
+    if (!town) return;
+
+    const dpr = Math.min(
+
+        window.devicePixelRatio || 1,
+
+        2
+
+    );
+
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    ctx.clearRect(
+
+        0,0,
+
+        canvas.clientWidth,
+
+        canvas.clientHeight
+
+    );
+
+    ctx.save();
+
+    ctx.translate(ox,oy);
+
+    ctx.scale(zoom,zoom);
+
+    // Ground layer
+
+    for (let y=0;y<town.height;y++) {
+
+        for (let x=0;x<town.width;x++) {
+
+            localTile(x,y,()=>{
+
+                ctx.fillStyle = colours[
+
+                    town.getTerrain(x,y)
+
+                ];
+
+                ctx.fillRect(0,0,1,1);
+
+                if (layer==='underground') {
+
+                    rect(0,0,1,1,
+
+                        'rgba(15,20,35,.68)');
+
+                }
+
+                ctx.strokeStyle =
+
+                    'rgba(25,45,30,.12)';
+
+                ctx.lineWidth = .018;
+
+                ctx.strokeRect(0,0,1,1);
+
+            });
+
+        }
+
+    }
+
+    // Construction preview overlay
+
+    const overlay = new Map();
+
+    if (
+
+        draft?.ok &&
+
+        action === 'build'
+
+    ) {
+
+        for (const {x,y} of draft.cells) {
+
+            overlay.set(
+
+                town.key(x,y),
+
+                type
+
+            );
+
+        }
+
+    }
+
+    // Existing and preview transport tiles
+
+    const visible = new Map(
+
+        network.layers[layer]
+
+    );
+
+    for (const [key,id] of overlay) {
+
+        visible.set(key,id);
+
+    }
+
+    for (const [key,id] of visible) {
+
+        const x = key%town.width;
+
+        const y = Math.floor(
+
+            key/town.width
+
+        );
+
+        drawNetwork(
+
+            x,y,id,
+
+            network.mask(x,y,layer,overlay),
+
+            overlay.has(key) ? .75 : 1
+
+        );
+
+    }
+
+    // Green valid route / red invalid route
+
+    if (draft) {
+
+        const valid =
+
+            draft.ok && action==='build';
+
+        for (const {x,y} of draft.cells) {
+
+            localTile(x,y,()=>{
+
+                rect(
+
+                    0,0,1,1,
+
+                    valid
+
+                        ? 'rgba(159,255,115,.28)'
+
+                        : 'rgba(255,95,85,.36)'
+
+                );
+
+                ctx.strokeStyle =
+
+                    valid
+
+                        ? '#cbffab'
+
+                        : '#ff8275';
+
+                ctx.lineWidth = .045;
+
+                ctx.strokeRect(0,0,1,1);
+
+            });
+
+        }
+
+    }
+
+    ctx.restore();
+
+}
+
+function redraw() {
+
+    if (framePending) return;
+
+    framePending = true;
+
+    requestAnimationFrame(()=>{
+
+        framePending = false;
+
+        render();
+
+    });
+
+}
+
+// ==========================================
+// CAMERA
+// ==========================================
+
+function fitMap() {
+
+    if (!town) return;
+
+    zoom = Math.min(
+
+        canvas.clientWidth /
+
+            ((town.width+town.height)*HW+60),
+
+        canvas.clientHeight /
+
+            ((town.width+town.height)*HH+60),
+
+        2
+
+    );
+
+    const c = project(
+
+        town.width/2,
+
+        town.height/2
+
+    );
+
+    ox = canvas.clientWidth/2-c[0]*zoom;
+
+    oy = canvas.clientHeight/2-c[1]*zoom;
+
+    redraw();
+
+}
+
+function resize() {
+
+    const dpr = Math.min(
+
+        window.devicePixelRatio || 1,
+
+        2
+
+    );
+
+    canvas.width = Math.round(
+
+        canvas.clientWidth*dpr
+
+    );
+
+    canvas.height = Math.round(
+
+        canvas.clientHeight*dpr
+
+    );
+
+    fitMap();
+
+}
+
+function changeZoom(factor,x,y) {
+
+    const next = Math.max(
+
+        .06,
+
+        Math.min(3,zoom*factor)
+
+    );
+
+    ox = x-(x-ox)*next/zoom;
+
+    oy = y-(y-oy)*next/zoom;
+
+    zoom = next;
+
+    redraw();
+
+}
+
+// ==========================================
+// ROUTE PREVIEW AND COST
+// ==========================================
+
+function update() {
+
+    draft = null;
+
+    if (start && end) {
+
+        if (action==='build') {
+
+            draft = network.preview(
+
+                type,start,end,xFirst
+
+            );
+
+        } else {
+
+            const cells = network.path(
+
+                start,end,xFirst
+
+            ).filter(p=>network.get(
+
+                p.x,p.y,layer
+
+            ));
+
+            draft = {
+
+                ok:cells.length>0,
+
+                cells,
+
+                cost:0,
+
+                reason:'No transport to remove'
+
+            };
+
+        }
+
+    }
+
+    $('cash').textContent =
+
+        '£'+town.cash.toLocaleString('en-GB');
+
+    $('surfaceCount').textContent =
+
+        network.layers.surface.size;
+
+    $('subCount').textContent =
+
+        network.layers.underground.size;
+
+    $('price').textContent =
+
+        TYPES[type].name+
+
+        ' — £'+TYPES[type].cost+' per tile';
+
+    $('confirm').disabled = !draft?.ok;
+
+    $('cancel').disabled = !start;
+
+    $('bend').disabled = !start;
+
+    $('confirm').textContent =
+
+        action==='build'
+
+            ? '✓ Build'
+
+            : '✓ Remove';
+
+    $('validation').textContent =
+
+        draft
+
+            ? draft.ok
+
+                ? (
+
+                    action==='build'
+
+                        ? draft.cells.length+
+
+                          ' route tiles · £'+
+
+                          draft.cost.toLocaleString('en-GB')
+
+                        : 'Confirm removal of '+
+
+                          draft.cells.length+' tiles'
+
+                  )
+
+                : draft.reason
+
+            : 'Choose a starting tile.';
+
+    $('validation').className =
+
+        !draft || draft.ok ? 'valid' : 'invalid';
+
+    $('edit').classList.toggle(
+
+        'active',mode==='edit'
+
+    );
+
+    $('pan').classList.toggle(
+
+        'active',mode==='pan'
+
+    );
+
+    $('buildMode').classList.toggle(
+
+        'active',action==='build'
+
+    );
+
+    $('eraseMode').classList.toggle(
+
+        'active',action==='erase'
+
+    );
+
+    canvas.style.cursor =
+
+        mode==='pan' ? 'grab' : 'crosshair';
+
+    $('status').textContent =
+
+        (layer==='surface'
+
+            ? 'Surface layer'
+
+            : 'Underground layer')+
+
+        ' | '+message;
+
+    redraw();
+
+}
+
+// ==========================================
+// CONFIRMATION CONTROLS
+// ==========================================
+
+$('confirm').onclick = () => {
+
+    if (!draft?.ok) return;
+
+    if (action==='build') {
+
+        const result = network.build(
+
+            type,start,end,xFirst
+
+        );
+
+        if (!result.ok) {
+
+            message = result.reason;
+
+            update();
+
+            return;
+
+        }
+
+        message =
+
+            'Route constructed for £'+
+
+            result.cost.toLocaleString('en-GB');
+
+    } else {
+
+        const count = network.erase(
+
+            start,end,layer,xFirst
+
+        );
+
+        message = count+' tiles removed.';
+
+    }
+
+    clearPlan();
+
+    update();
+
+};
+
+$('cancel').onclick = () => {
+
+    clearPlan();
+
+    message = 'Route cancelled. No money spent.';
+
+    update();
+
+};
+
+$('bend').onclick = () => {
+
+    xFirst = !xFirst;
+
+    update();
+
+};
+
+$('buildMode').onclick = () => {
+
+    action = 'build';
+
+    mode = 'edit';
+
+    clearPlan();
+
+    update();
+
+};
+
+$('eraseMode').onclick = () => {
+
+    action = 'erase';
+
+    mode = 'edit';
+
+    clearPlan();
+
+    message = 'Select transport tiles to remove.';
+
+    update();
+
+};
+
+$('edit').onclick = () => {
+
+    mode = 'edit';
+
+    update();
+
+};
+
+$('pan').onclick = () => {
+
+    mode = 'pan';
+
+    update();
+
+};
+
+// ==========================================
+// MOUSE AND TOUCH INPUT
+// ==========================================
+
+function position(e) {
+
+    const r = canvas.getBoundingClientRect();
+
+    return {
+
+        x:e.clientX-r.left,
+
+        y:e.clientY-r.top
+
+    };
+
+}
+
+canvas.addEventListener('pointerdown',e=>{
+
+    if (pointer || e.button!==0) return;
+
+    const p = position(e);
+
+    const tile = tileAt(p.x,p.y);
+
+    if (
+
+        mode==='edit' &&
+
+        !town.inside(tile.x,tile.y)
+
+    ) return;
+
+    pointer = {
+
+        id:e.pointerId,
+
+        x:p.x,
+
+        y:p.y,
+
+        mode
+
+    };
+
+    canvas.setPointerCapture(e.pointerId);
+
+    if (mode==='pan') return;
+
+    if (!start) start = tile;
+
+    end = tile;
+
+    message = 'Adjust or confirm the route.';
+
+    update();
+
+});
+
+canvas.addEventListener('pointermove',e=>{
+
+    if (
+
+        !pointer ||
+
+        pointer.id!==e.pointerId
+
+    ) return;
+
+    const p = position(e);
+
+    if (pointer.mode==='pan') {
+
+        ox += p.x-pointer.x;
+
+        oy += p.y-pointer.y;
+
+        redraw();
+
+    } else {
+
+        const tile = tileAt(p.x,p.y);
+
+        if (town.inside(tile.x,tile.y)) {
+
+            end = tile;
+
+            update();
+
+        }
+
+    }
+
+    pointer.x = p.x;
+
+    pointer.y = p.y;
+
+});
+
+function finishPointer(e) {
+
+    if (pointer?.id===e.pointerId) {
+
+        pointer = null;
+
+    }
+
+}
+
+canvas.addEventListener(
+
+    'pointerup',finishPointer
+
+);
+
+canvas.addEventListener(
+
+    'pointercancel',finishPointer
+
+);
+
+canvas.addEventListener(
+
+    'lostpointercapture',finishPointer
+
+);
+
+canvas.addEventListener('wheel',e=>{
+
+    e.preventDefault();
+
+    const p = position(e);
+
+    changeZoom(
+
+        e.deltaY<0 ? 1.15 : 1/1.15,
+
+        p.x,p.y
+
+    );
+
+},{passive:false});
+
+$('zoomIn').onclick = () => changeZoom(
+
+    1.25,
+
+    canvas.clientWidth/2,
+
+    canvas.clientHeight/2
+
+);
+
+$('zoomOut').onclick = () => changeZoom(
+
+    .8,
+
+    canvas.clientWidth/2,
+
+    canvas.clientHeight/2
+
+);
+
+$('fit').onclick = fitMap;
+
+$('reset').onclick = () => resetWorld(true);
+
+// ==========================================
+// AUTOMATED TRANSPORT TESTS
+// ==========================================
+
+let passed = 0;
+
+let failed = 0;
+
+function test(name,fn) {
+
+    const row = document.createElement('div');
+
+    row.className = 'test';
+
+    const label = document.createElement('span');
+
+    label.textContent = name;
+
+    const result = document.createElement('strong');
+
+    try {
+
+        if (!fn()) throw new Error('Check failed');
+
+        result.textContent = 'PASS';
+
+        result.className = 'valid';
+
+        passed++;
+
+    } catch(e) {
+
+        result.textContent = 'FAIL';
+
+        result.className = 'invalid';
+
+        result.title = e.message;
+
+        failed++;
+
+    }
+
+    row.append(label,result);
+
+    $('tests').appendChild(row);
+
+}
+
+const point = (x,y) => ({x,y});
+
+function fixture() {
+
+    const t = new TownEngine({
+
+        width:12,
+
+        height:12,
+
+        cash:1000
+
+    });
+
+    return {
+
+        t,
+
+        n:new TownTransport(t)
+
+    };
+
+}
+
+test('Route preview does not spend money',()=>{
+
+    const {t,n} = fixture();
+
+    const p = n.preview(
+
+        'road',point(1,1),point(4,3)
+
+    );
+
+    return p.ok &&
+
+        p.cells.length===6 &&
+
+        t.cash===1000 &&
+
+        n.layers.surface.size===0;
+
+});
+
+test('Confirmed route charges correct cost',()=>{
+
+    const {t,n} = fixture();
+
+    const p = n.build(
+
+        'road',point(1,1),point(4,3)
+
+    );
+
+    return p.ok &&
+
+        p.cost===72 &&
+
+        t.cash===928;
+
+});
+
+test('Existing tiles are not charged twice',()=>{
+
+    const {t,n} = fixture();
+
+    n.build('road',point(1,1),point(4,1));
+
+    const cash = t.cash;
+
+    return n.build(
+
+        'road',point(1,1),point(4,1)
+
+    ).cost===0 && t.cash===cash;
+
+});
+
+test('Road corners connect automatically',()=>{
+
+    const {n} = fixture();
+
+    n.build('road',point(1,1),point(4,3));
+
+    return n.mask(4,1)===12;
+
+});
+
+test('Connected route can be found',()=>{
+
+    const {n} = fixture();
+
+    n.build('road',point(1,1),point(4,3));
+
+    return n.route(
+
+        point(1,1),point(4,3)
+
+    )?.length===6;
+
+});
+
+test('Conflicting surface tracks are rejected',()=>{
+
+    const {n} = fixture();
+
+    n.build('road',point(1,1));
+
+    return !n.preview('rail',point(1,1)).ok;
+
+});
+
+test('Roads cannot be built over water',()=>{
+
+    const {t,n} = fixture();
+
+    t.setTerrain(5,3,'water');
+
+    return !n.preview('road',point(5,3)).ok;
+
+});
+
+test('Bridges connect across water',()=>{
+
+    const {t,n} = fixture();
+
+    t.setTerrain(5,3,'water');
+
+    n.build('road',point(1,3),point(4,3));
+
+    const b = n.build('roadbridge',point(5,3));
+
+    return b.ok &&
+
+        n.route(point(1,3),point(5,3))?.length===5;
+
+});
+
+test('Underground tracks coexist with roads',()=>{
+
+    const {n} = fixture();
+
+    n.build('road',point(1,1));
+
+    n.build('subway',point(1,1),point(4,1));
+
+    return n.get(1,1)==='road' &&
+
+        n.get(1,1,'underground')==='subway';
+
+});
+
+test('Existing buildings protect occupied land',()=>{
+
+    const {t,n} = fixture();
+
+    t.register('house',{cost:100});
+
+    t.place('house',2,2);
+
+    return !n.preview('road',point(2,2)).ok;
+
+});
+
+test('Railway platform sections connect uniformly',()=>{
+
+    const {n} = fixture();
+
+    n.build('platform',point(1,1),point(4,1));
+
+    return n.mask(2,1)===10 &&
+
+        n.mask(3,1)===10;
+
+});
+
+test('Removing a tile disconnects the route',()=>{
+
+    const {n} = fixture();
+
+    n.build('road',point(1,1),point(4,1));
+
+    n.erase(point(2,1));
+
+    return n.route(
+
+        point(1,1),point(4,1)
+
+    )===null;
+
+});
+
+test('Insufficient funds prevent construction',()=>{
+
+    const {t,n} = fixture();
+
+    t.cash = 0;
+
+    return !n.build('road',point(1,1)).ok &&
+
+        n.layers.surface.size===0;
+
+});
+
+$('summary').textContent =
+
+    passed+' tests passed · '+
+
+    failed+' tests failed';
+
+$('summary').className =
+
+    failed ? 'invalid' : 'valid';
+
+// ==========================================
+// INITIALISE
+// ==========================================
+
+resetWorld();
+
+resize();
+
+new ResizeObserver(resize).observe(canvas);
+
+})();
+
+</script>
+
+</body>
+</html>
