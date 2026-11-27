@@ -1,0 +1,387 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <title>Town Builder V1.0 Development</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 30px 20px;
+            background: #101c19;
+            color: #e8f1ea;
+            font-family: Arial, sans-serif;
+        }
+
+        main {
+            max-width: 850px;
+            margin: auto;
+        }
+
+        h1 {
+            color: #c4e9a6;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #9bb3a5;
+            margin-bottom: 30px;
+        }
+
+        .panel {
+            background: #1b2c25;
+            border: 1px solid #354d40;
+            border-radius: 16px;
+            padding: 22px;
+            margin-bottom: 20px;
+        }
+
+        .result {
+            padding: 13px 0;
+            border-bottom: 1px solid #354d40;
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .pass {
+            color: #9ee293;
+        }
+
+        .fail {
+            color: #ff9b90;
+        }
+
+        a {
+            color: #b4dca5;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<main>
+
+    <h1>Town Builder V1.0</h1>
+
+    <p class="subtitle">
+        Development workspace — Phase 1
+    </p>
+
+    <section class="panel">
+
+        <h2>Asset manager</h2>
+
+        <div id="assets"></div>
+
+    </section>
+
+    <section class="panel">
+
+        <h2>Core engine tests</h2>
+
+        <div id="results"></div>
+
+        <h3 id="summary"></h3>
+
+    </section>
+
+    <section class="panel">
+
+        <h2>Existing game</h2>
+
+        <p>
+            The original playable game remains separate
+            from these development tests.
+        </p>
+
+        <a href="./index.html">
+            Open existing game
+        </a>
+
+    </section>
+
+</main>
+
+<script src="./js/assets.js"></script>
+<script src="./js/engine.js"></script>
+
+<script>
+
+    const results = document.getElementById('results');
+
+    let passed = 0;
+    let failed = 0;
+
+    function test(name, action) {
+
+        const row = document.createElement('div');
+
+        row.className = 'result';
+
+        const label = document.createElement('span');
+
+        label.textContent = name;
+
+        const status = document.createElement('strong');
+
+        try {
+
+            if (!action()) {
+                throw new Error('Check failed');
+            }
+
+            status.textContent = 'PASS';
+            status.className = 'pass';
+
+            passed++;
+
+        } catch (error) {
+
+            status.textContent = 'FAIL';
+            status.className = 'fail';
+            status.title = error.message;
+
+            failed++;
+
+        }
+
+        row.append(label, status);
+
+        results.appendChild(row);
+
+    }
+
+    function createTown() {
+
+        const town = new TownEngine({
+            width: 16,
+            height: 16,
+            cash: 1000
+        });
+
+        town.register('house', {
+            name: 'Test house',
+            width: 2,
+            height: 1,
+            cost: 250
+        });
+
+        town.register('beachhut', {
+            name: 'Beach hut',
+            cost: 100,
+            surfaces: ['sand']
+        });
+
+        return town;
+
+    }
+
+    test('Engine loads', () => {
+
+        return typeof window.TownEngine === 'function';
+
+    });
+
+    test('Map grid created', () => {
+
+        return createTown().terrain.length === 256;
+
+    });
+
+    test('Preview does not spend money', () => {
+
+        const t = createTown();
+
+        return t.preview('house', 2, 2).ok &&
+            t.cash === 1000 &&
+            t.buildings.size === 0;
+
+    });
+
+    test('Confirmed construction deducts money', () => {
+
+        const t = createTown();
+
+        return t.place('house', 2, 2).ok &&
+            t.cash === 750;
+
+    });
+
+    test('Overlapping buildings prevented', () => {
+
+        const t = createTown();
+
+        t.place('house', 2, 2);
+
+        return !t.place('house', 3, 2).ok;
+
+    });
+
+    test('Construction outside map prevented', () => {
+
+        return !createTown()
+            .place('house', 15, 15).ok;
+
+    });
+
+    test('Rotation changes footprint', () => {
+
+        const t = createTown();
+
+        const p = t.preview('house', 2, 2, 1);
+
+        return p.ok &&
+            p.width === 1 &&
+            p.height === 2;
+
+    });
+
+    test('Relocation does not charge again', () => {
+
+        const t = createTown();
+
+        const b = t.place('house', 2, 2).building;
+
+        return t.move(b.id, 5, 5, 1).ok &&
+            t.cash === 750 &&
+            !t.occupied.has(t.key(2, 2));
+
+    });
+
+    test('Terrain can be edited', () => {
+
+        const t = createTown();
+
+        return t.setTerrain(5, 5, 'sand') &&
+            t.getTerrain(5, 5) === 'sand';
+
+    });
+
+    test('Beach buildings accept sand', () => {
+
+        const t = createTown();
+
+        t.setTerrain(5, 5, 'sand');
+
+        return t.place('beachhut', 5, 5).ok;
+
+    });
+
+    test('Unsuitable terrain rejected', () => {
+
+        return !createTown()
+            .place('beachhut', 5, 5).ok;
+
+    });
+
+    test('Insufficient funds prevented', () => {
+
+        const t = createTown();
+
+        t.cash = 100;
+
+        return !t.place('house', 2, 2).ok;
+
+    });
+
+    test('Demolition frees occupied land', () => {
+
+        const t = createTown();
+
+        const b = t.place('house', 2, 2).building;
+
+        return t.remove(b.id) &&
+            t.buildings.size === 0 &&
+            t.occupied.size === 0;
+
+    });
+
+    const summary = document.getElementById('summary');
+
+    summary.textContent =
+        passed + ' tests passed · ' +
+        failed + ' tests failed';
+
+    summary.className = failed ? 'fail' : 'pass';
+
+    const assetsPanel = document.getElementById('assets');
+
+    if (!window.TownAssets) {
+
+        assetsPanel.textContent = 'Asset manager unavailable';
+
+        assetsPanel.className = 'fail';
+
+    } else {
+
+        assetsPanel.textContent =
+            TownAssets.count() +
+            ' sprite sheets registered. Checking files...';
+
+        Promise.all(
+
+            Object.entries(TownAssets.registry).map(
+                ([name, url]) => new Promise(resolve => {
+
+                    const image = new Image();
+
+                    image.onload = () => resolve({
+                        name,
+                        ok: true
+                    });
+
+                    image.onerror = () => resolve({
+                        name,
+                        ok: false
+                    });
+
+                    image.src = url;
+
+                })
+            )
+
+        ).then(items => {
+
+            const missing = items.filter(item => !item.ok);
+
+            assetsPanel.textContent =
+                (items.length - missing.length) +
+                ' / ' + items.length +
+                ' sprite sheets loaded successfully';
+
+            assetsPanel.className =
+                missing.length ? 'fail' : 'pass';
+
+            for (const item of missing) {
+
+                const p = document.createElement('p');
+
+                p.textContent = 'Missing: ' + item.name;
+
+                assetsPanel.appendChild(p);
+
+            }
+
+        });
+
+    }
+
+</script>
+
+</body>
+</html>
