@@ -16415,6 +16415,520 @@ const css11=el11(
     document.head
 );
 
+   
+/* V0.13 — ROTATION AND HD ARTWORK */
+
+(()=>{
+'use strict';
+
+if(window.townV13)return;
+window.townV13=true;
+
+// ==========================================
+// 01 — REGISTER MISSING ARTWORK
+// ==========================================
+
+const newPacks={
+
+    'housing-missing':[
+        'v6_beachhut',
+        'v6_thatched',
+        'v6_farmcottage',
+        'v6_colonial',
+
+        'v6_spanish',
+        'v6_penthouse',
+        'v6_terraced',
+        'v6_student',
+
+        'v6_retirement',
+        'v6_countryside',
+        'v6_canadian',
+        'v6_brownstone',
+
+        'v6_fairytale',
+        '@Unused',
+        '@Unused',
+        '@Unused'
+    ],
+
+    'shops-missing-01':[
+        'shop',
+        'hardware',
+        'hotel',
+        'v6_petshop',
+
+        'v6_jeweller',
+        'v6_records',
+        'v6_stationery',
+        'v6_furniture',
+
+        'v6_shoeshop',
+        'v6_gardencentre',
+        'v6_charityshop',
+        'v6_tailor',
+
+        'v6_barber',
+        'v6_salon',
+        'v6_musicshop',
+        'v6_bookstall'
+    ]
+};
+
+for(const [name,ids] of Object.entries(newPacks)){
+
+    collection[name]=ids;
+
+    if(!queue.includes(name)){
+        queue.push(name);
+    }
+}
+
+const extraIDs=new Set(
+    Object.values(newPacks).flat()
+);
+
+const compact=new Set([
+    'vehicles',
+    'people',
+    'workers',
+    'aircraft',
+    'boats',
+    'roads',
+    'railways',
+    'terrain',
+    'goods'
+]);
+
+// ==========================================
+// 02 — UPDATE ARTWORK LIBRARY
+// ==========================================
+
+const earlierGallery=refreshGallery;
+
+refreshGallery=function(){
+
+    earlierGallery();
+
+    if(gallery.hidden)return;
+
+    const p=gallery.querySelector('p');
+
+    if(p){
+
+        p.textContent=
+
+            loaded+' / '+
+            Object.keys(collection).length+
+            ' packs loaded • '+
+            mappings.size+
+            ' catalogue items matched';
+    }
+};
+
+// ==========================================
+// 03 — HIGH RESOLUTION ARTWORK LOADER
+// ==========================================
+
+loadNext=function(){
+
+    if(!queue.length){
+
+        dirty=true;
+
+        return;
+    }
+
+    const name=queue.shift();
+
+    const image=new Image();
+
+    function advance(){
+
+        try{
+
+            decorateCards();
+
+            refreshGallery();
+
+            addGoodsIcons();
+
+            dirty=true;
+
+        }finally{
+
+            setTimeout(loadNext,60);
+        }
+    }
+
+    image.onload=()=>{
+
+        try{
+
+            const native=image.naturalWidth;
+
+            if(
+
+                native!==image.naturalHeight||
+
+                native%4||
+
+                native<256||
+
+                native>2048
+
+            ){
+
+                throw new Error(
+                    'Unsupported atlas dimensions'
+                );
+            }
+
+            // Retain original building resolution.
+            // Smaller moving sprites remain compact.
+
+            const side=compact.has(name)
+
+                ?Math.min(768,native)
+
+                :native;
+
+            const size=side/4;
+
+            const c=document.createElement(
+                'canvas'
+            );
+
+            c.width=c.height=side;
+
+            const g=c.getContext('2d');
+
+            g.imageSmoothingEnabled=true;
+
+            g.imageSmoothingQuality='high';
+
+            g.drawImage(
+                image,0,0,side,side
+            );
+
+            const rgba=g.getImageData(
+                0,0,side,side
+            ).data;
+
+            const cells=[];
+
+            for(let i=0;i<16;i++){
+
+                const ox=i%4*size;
+
+                const oy=Math.floor(i/4)*size;
+
+                let l=size;
+                let t=size;
+                let r=-1;
+                let b=-1;
+
+                for(let y=0;y<size;y++){
+
+                    for(let x=0;x<size;x++){
+
+                        const alpha=rgba[
+
+                            (
+                                (oy+y)*side+
+                                ox+x
+                            )*4+3
+                        ];
+
+                        if(alpha>32){
+
+                            l=Math.min(l,x);
+
+                            r=Math.max(r,x);
+
+                            t=Math.min(t,y);
+
+                            b=Math.max(b,y);
+                        }
+                    }
+                }
+
+                cells.push(
+
+                    r<l||b<t
+
+                        ?null
+
+                        :{
+                            image:c,
+                            x:ox+l,
+                            y:oy+t,
+                            w:r-l+1,
+                            h:b-t+1
+                        }
+                );
+            }
+
+            packs.set(
+                name,
+                {canvas:c,cells}
+            );
+
+            // Replace shared or missing artwork
+            // only after the new image loads.
+
+            if(newPacks[name]){
+
+                newPacks[name].forEach(
+
+                    (id,i)=>{
+
+                        if(TYPES[id]&&cells[i]){
+
+                            mappings.set(
+
+                                id,
+
+                                {
+                                    pack:name,
+                                    index:i
+                                }
+                            );
+                        }
+                    }
+                );
+            }
+
+            if(name==='terrain'){
+
+                groundCache.clear();
+            }
+
+            loaded++;
+
+        }catch(e){
+
+            failed++;
+
+            console.warn(
+                'Artwork skipped:',name,e
+            );
+        }
+
+        advance();
+    };
+
+    image.onerror=()=>{
+
+        failed++;
+
+        console.warn(
+            'Artwork unavailable:',name
+        );
+
+        advance();
+    };
+
+    image.src='./'+name+'-atlas.webp';
+};
+
+// ==========================================
+// 04 — CORRECT BUILDING ROTATION
+// ==========================================
+
+function illustrated(id){
+
+    return (
+
+        !seaPorts.has(id)&&
+
+        !ROAD_STYLE.has(id)&&
+
+        !TRACK.has(id)&&
+
+        (
+            mappings.has(id)||
+            extraIDs.has(id)
+        )
+    );
+}
+
+const oldRotate13=rotateBuilding;
+
+rotateBuilding=function(k){
+
+    const b=town.buildings[k];
+
+    if(!b)return;
+
+    // Preserve special harbour and track rules.
+
+    if(!illustrated(b.type)||b.bridge){
+
+        return oldRotate13(k);
+    }
+
+    const w=b.h||1;
+
+    const h=b.w||1;
+
+    if(!valid(...xy(k),w,h,k)){
+
+        message(
+            'Not enough clear land to rotate.'
+        );
+
+        return;
+    }
+
+    b.w=w;
+
+    b.h=h;
+
+    b.rot=1-((Number(b.rot)||0)&1);
+
+    changed(
+        'Building rotated.',
+        true
+    );
+};
+
+// ==========================================
+// 05 — FIX ROTATE TOOLBAR BUTTON
+// ==========================================
+
+const rotateControl=[
+
+    ...$('v7tools').querySelectorAll('button')
+
+].find(
+
+    b=>b.textContent.includes('Rotate')
+);
+
+if(rotateControl){
+
+    const oldClick13=rotateControl.onclick;
+
+    rotateControl.onclick=()=>{
+
+        if(
+
+            layer==='surface'&&
+
+            mode==='build'&&
+
+            illustrated(selected)
+        ){
+
+            rotation=1-(
+                (Number(rotation)||0)&1
+            );
+
+            selectMode('build');
+
+            message(
+
+                title(selected)+
+
+                ' • Orientation '+
+
+                (rotation+1)+'/2'
+            );
+
+            dirty=true;
+
+            return;
+        }
+
+        if(
+
+            layer==='surface'&&
+
+            mode==='inspect'&&
+
+            inspected
+        ){
+
+            rotateBuilding(inspected);
+
+            return;
+        }
+
+        oldClick13?.();
+    };
+}
+
+// ==========================================
+// 06 — PRESERVE ROTATION WHEN BUILDING
+// ==========================================
+
+const oldAct13=act;
+
+act=function(x,y){
+
+    const k=key(x,y);
+
+    const before=town.buildings[k];
+
+    const placing=
+
+        layer==='surface'&&
+
+        mode==='build'&&
+
+        illustrated(selected);
+
+    const direction=
+
+        (Number(rotation)||0)&1;
+
+    oldAct13(x,y);
+
+    const b=town.buildings[k];
+
+    if(
+
+        placing&&
+
+        b&&
+
+        b!==before&&
+
+        illustrated(b.type)&&
+
+        b.rot!==direction
+    ){
+
+        b.rot=direction;
+
+        changed();
+    }
+};
+
+// ==========================================
+// 07 — CORRECT EXISTING SAVED ORIENTATIONS
+// ==========================================
+
+for(const b of Object.values(town.buildings)){
+
+    if(illustrated(b.type)&&!b.bridge){
+
+        b.rot=(Number(b.rot)||0)&1;
+    }
+}
+
+dirty=true;
+
+console.log(
+    'V0.13 HD artwork and rotation ready'
+);
+
+})();
+
+/* END OF V0.13 */
+
+
 css11.textContent=`
 
 #v11gallery{
