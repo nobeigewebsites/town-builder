@@ -13364,7 +13364,7 @@ css.textContent=`
 // 12 — ACTIVATE VERSION 0.10
 // ==========================================
 
-atlas.src='./town-buildings-atlas.webp';
+atlas.src=window.TownAssets.url('town-buildings');
 
 dirty=true;
 
@@ -14252,7 +14252,7 @@ function loadNext(){
         setTimeout(loadNext,60);
     };
 
-    image.src='./'+name+'-atlas.webp';
+    image.src=window.TownAssets.url(name);
 }
 
 // =====================================================
@@ -16729,7 +16729,7 @@ loadNext=function(){
         advance();
     };
 
-    image.src='./'+name+'-atlas.webp';
+    image.src=window.TownAssets.url(name);
 };
 
 // ==========================================
