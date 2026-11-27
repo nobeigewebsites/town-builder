@@ -1,0 +1,1469 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1">
+
+<title>Town Builder V1.0 — Progression</title>
+
+<style>
+
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    background:#101e18;
+    color:#edf4e9;
+    font-family:Arial,sans-serif;
+}
+
+header{
+    padding:18px;
+    background:#1b3024;
+    border-bottom:1px solid #405747;
+}
+
+h1{
+    font-size:22px;
+    margin:0 0 8px;
+    color:#c2e3a4;
+}
+
+h2{
+    font-size:17px;
+    color:#c6dfb7;
+    margin:0 0 12px;
+}
+
+h3{font-size:15px}
+
+.muted{
+    color:#abc0ac;
+    font-size:13px;
+    line-height:1.6;
+}
+
+.stats,.toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:12px 0;
+}
+
+.stat{
+    padding:12px;
+    background:#294335;
+    border:1px solid #45614b;
+    border-radius:9px;
+    font-size:13px;
+}
+
+.stat strong{
+    display:block;
+    font-size:21px;
+    margin-top:5px;
+}
+
+.layout{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    padding:12px;
+}
+
+.panel{
+    min-width:0;
+    background:#1b2e24;
+    border:1px solid #405747;
+    border-radius:12px;
+    padding:15px;
+}
+
+.full{grid-column:1/-1}
+
+button,select,input{
+    font:inherit;
+    padding:10px;
+    color:#eff6e9;
+    background:#304b38;
+    border:1px solid #4c694e;
+    border-radius:8px;
+}
+
+button{cursor:pointer}
+
+button:hover{filter:brightness(1.15)}
+
+button:disabled{
+    opacity:.4;
+    cursor:default;
+}
+
+select,input[type=number]{
+    width:100%;
+    margin:6px 0;
+}
+
+label{
+    display:block;
+    margin:10px 0;
+    font-size:13px;
+}
+
+.confirm{background:#488f50}
+.cancel{background:#934a43}
+
+.valid{color:#b2e99f}
+.invalid{color:#ffaaa0}
+.warning{color:#e9c775}
+
+.item{
+    background:#263e2e;
+    border:1px solid #405747;
+    padding:12px;
+    border-radius:9px;
+    margin:9px 0;
+}
+
+.item h3{margin:0 0 8px}
+
+.item button{
+    margin:8px 5px 0 0;
+}
+
+.bar{
+    height:8px;
+    border-radius:9px;
+    overflow:hidden;
+    background:#14271e;
+    margin:8px 0;
+}
+
+.fill{
+    height:100%;
+    background:#83bd77;
+}
+
+.check{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.log{
+    max-height:260px;
+    overflow:auto;
+    font-size:13px;
+    line-height:1.8;
+    color:#b9cbb6;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+}
+
+th,td{
+    padding:9px 5px;
+    text-align:left;
+    border-bottom:1px solid #405747;
+}
+
+td button{
+    font-size:12px;
+    padding:6px;
+}
+
+.test{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:9px 0;
+    border-bottom:1px solid #405747;
+    font-size:13px;
+}
+
+footer{
+    padding:16px;
+    font-size:13px;
+}
+
+a{color:#b9e0a6}
+
+@media(max-width:720px){
+    .layout{grid-template-columns:1fr}
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+<h1>Town Builder V1.0</h1>
+
+<div class="muted">
+    Development Workspace — Research & Progression
+</div>
+
+<div class="stats">
+
+    <div class="stat">
+        Day
+        <strong id="day"></strong>
+    </div>
+
+    <div class="stat">
+        Town funds
+        <strong id="cash"></strong>
+    </div>
+
+    <div class="stat">
+        Research completed
+        <strong id="researchCount"></strong>
+    </div>
+
+    <div class="stat">
+        Achievements
+        <strong id="achievementCount"></strong>
+    </div>
+
+    <div class="stat">
+        Storage
+        <strong id="storage"></strong>
+    </div>
+
+</div>
+
+<div class="toolbar">
+
+    <button id="day1" class="confirm">
+        ☀ Advance 1 day
+    </button>
+
+    <button id="day3">
+        Advance 3 days
+    </button>
+
+    <button id="day7">
+        Advance 7 days
+    </button>
+
+    <button id="reset" class="cancel">
+        Reset test town
+    </button>
+
+</div>
+
+<p id="message" class="valid"></p>
+
+</header>
+
+<main class="layout">
+
+<section class="panel">
+
+    <h2>🔬 Research centre</h2>
+
+    <p class="muted">
+        Research is optional and paid for using
+        ordinary town funds.
+    </p>
+
+    <div id="research"></div>
+
+</section>
+
+<section class="panel">
+
+    <h2>🏆 Achievements</h2>
+
+    <div id="achievements"></div>
+
+    <p class="muted">
+        Achievements remain unlocked after
+        their requirements have been met.
+    </p>
+
+</section>
+
+<section class="panel">
+
+    <h2>📋 Optional town objectives</h2>
+
+    <div id="objectives"></div>
+
+    <p class="muted">
+        Accept only the objectives you want.
+        No deadlines or cancellation penalties.
+    </p>
+
+</section>
+
+<section class="panel">
+
+    <h2>🌾 Farm management</h2>
+
+    <label for="field">Choose field</label>
+
+    <select id="field"></select>
+
+    <p id="fieldStatus"></p>
+
+    <label for="crop">Choose crop</label>
+
+    <select id="crop"></select>
+
+    <div class="toolbar">
+
+        <button id="plant" class="confirm">
+            Plant crop
+        </button>
+
+        <button id="harvest">
+            Harvest crop
+        </button>
+
+    </div>
+
+    <label class="check">
+
+        <input type="checkbox" id="autoHarvest">
+
+        Automatic harvesting
+
+    </label>
+
+    <label class="check">
+
+        <input type="checkbox" id="autoReplant">
+
+        Automatically replant the same crop
+
+    </label>
+
+    <p id="automationInfo" class="muted"></p>
+
+    <h3>Manufacturing</h3>
+
+    <p id="millStatus" class="muted"></p>
+
+    <button id="mill">
+        Start flour production
+    </button>
+
+    <h3>Development construction</h3>
+
+    <select id="building">
+
+        <option value="econCottage">Country cottage</option>
+        <option value="econFamilyHome">Family home</option>
+        <option value="econApartments">Apartments</option>
+        <option value="farmField">Small field</option>
+        <option value="largeField">Large field</option>
+        <option value="farmBarn">Storage barn</option>
+
+    </select>
+
+    <button id="build">
+        Build selected property
+    </button>
+
+    <p class="muted">
+        Test buildings are placed automatically
+        in the next available space.
+    </p>
+
+</section>
+
+<section class="panel">
+
+    <h2>🚚 Imports and exports</h2>
+
+    <select id="product"></select>
+
+    <label for="quantity">Import quantity</label>
+
+    <input id="quantity"
+           type="number"
+           min="1"
+           max="10000"
+           value="10">
+
+    <p id="importInfo" class="muted"></p>
+
+    <button id="import" class="confirm">
+        Import goods
+    </button>
+
+    <h3>Shared inventory</h3>
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Stock</th>
+                <th>Export price</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+
+        <tbody id="inventory"></tbody>
+
+    </table>
+
+</section>
+
+<section class="panel">
+
+    <h2>📊 Town milestones</h2>
+
+    <div id="metrics"></div>
+
+    <h3>Activity log</h3>
+
+    <div id="log" class="log"></div>
+
+</section>
+
+<section class="panel full">
+
+    <h2>Progression engine tests</h2>
+
+    <div id="tests"></div>
+
+    <h3 id="summary"></h3>
+
+</section>
+
+</main>
+
+<footer>
+
+    <a href="./v1-simulation.html">Population</a>
+    &nbsp; | &nbsp;
+    <a href="./v1-economy.html">Economy</a>
+    &nbsp; | &nbsp;
+    <a href="./v1-industry.html">Industry</a>
+    &nbsp; | &nbsp;
+    <a href="./v1-farming.html">Farming</a>
+    &nbsp; | &nbsp;
+    <a href="./index.html">Existing game</a>
+
+</footer>
+
+<script src="./js/engine.js"></script>
+<script src="./js/farming.js"></script>
+<script src="./js/industry.js"></script>
+<script src="./js/economy.js"></script>
+<script src="./js/progression.js"></script>
+
+<script>
+
+(() => {
+
+'use strict';
+
+const $=id=>document.getElementById(id);
+
+const RESEARCH=TownResearchProjects;
+const ACHIEVEMENTS=TownAchievements;
+const OBJECTIVES=TownObjectives;
+const PRODUCTS=TownIndustryProducts;
+const CROPS=TownFarmCrops;
+
+const LABELS={
+
+    homes:'Residential buildings',
+    households:'Occupied households',
+    harvested:'Harvested crop units',
+    batches:'Manufactured batches',
+    exportRevenue:'Export revenue (£)',
+    research:'Completed research projects'
+
+};
+
+let town,farm,industry,economy,progression;
+
+let millId;
+
+let message='';
+
+let messageOK=true;
+
+const money=n=>'£'+n.toLocaleString('en-GB');
+
+// ==========================================
+// INTERFACE HELPERS
+// ==========================================
+
+function notice(text,ok=true){
+
+    message=text;
+    messageOK=ok;
+
+}
+
+function show(result,text){
+
+    notice(
+        result.ok?text:result.reason,
+        result.ok
+    );
+
+    update();
+
+}
+
+function element(tag,text,className=''){
+
+    const node=document.createElement(tag);
+
+    node.textContent=text;
+
+    if(className)
+        node.className=className;
+
+    return node;
+
+}
+
+function button(parent,label,action,disabled=false){
+
+    const b=element('button',label);
+
+    b.onclick=action;
+    b.disabled=disabled;
+
+    parent.appendChild(b);
+
+    return b;
+
+}
+
+function option(select,value,label){
+
+    const o=element('option',label);
+
+    o.value=value;
+
+    select.appendChild(o);
+
+}
+
+function card(parent,title){
+
+    const box=element('div','','item');
+
+    box.appendChild(element('h3',title));
+
+    parent.appendChild(box);
+
+    return box;
+
+}
+
+function bar(parent,progress){
+
+    const track=element('div','','bar');
+
+    const fill=element('div','','fill');
+
+    fill.style.width=
+        Math.min(100,Math.max(0,progress))+'%';
+
+    track.appendChild(fill);
+
+    parent.appendChild(track);
+
+}
+
+// ==========================================
+// CREATE SHARED TEST WORLD
+// ==========================================
+
+function createWorld(){
+
+    const t=new TownEngine({
+        width:18,
+        height:12,
+        cash:15000
+    });
+
+    const f=new TownFarming(t);
+
+    const i=new TownIndustry(t,f);
+
+    const e=new TownEconomy(t,f,i);
+
+    const p=new TownProgression(e);
+
+    const field=t.place(
+        'farmField',1,1
+    ).building.id;
+
+    const mill=t.place(
+        'industryMill',5,1
+    ).building.id;
+
+    f.sync();
+    i.sync();
+    e.sync();
+
+    return {t,f,i,e,p,field,mill};
+
+}
+
+function reset(ask=false){
+
+    if(ask && !confirm('Reset test town?'))
+        return;
+
+    const w=createWorld();
+
+    town=w.t;
+    farm=w.f;
+    industry=w.i;
+    economy=w.e;
+    progression=w.p;
+    millId=w.mill;
+
+    town.place('farmBarn',9,1);
+
+    town.place('econCottage',1,6);
+
+    industry.add('wheat',12);
+
+    notice('Research centre ready.');
+
+    update();
+
+}
+
+for(const [id,c] of Object.entries(CROPS)){
+
+    option($('crop'),id,c.icon+' '+c.name);
+
+}
+
+for(const [id,d] of Object.entries(PRODUCTS)
+    .sort((a,b)=>a[1].name.localeCompare(b[1].name))){
+
+    option($('product'),id,d.name);
+
+}
+
+// ==========================================
+// RESEARCH DASHBOARD
+// ==========================================
+
+function renderResearch(){
+
+    $('research').replaceChildren();
+
+    for(const [id,d] of Object.entries(RESEARCH)){
+
+        const status=progression.researchStatus(id);
+
+        const box=card($('research'),d.name);
+
+        box.appendChild(element(
+            'div',d.benefit,'muted'
+        ));
+
+        box.appendChild(element(
+            'p',money(d.cost)+' · '+d.days+' days'
+        ));
+
+        if(status==='complete'){
+
+            box.appendChild(element(
+                'strong','✓ Research completed','valid'
+            ));
+
+            bar(box,100);
+
+        }else if(
+            status==='researching' ||
+            status==='paused'
+        ){
+
+            const a=progression.active;
+
+            box.appendChild(element(
+                'div',
+                a.remaining+' days remaining · '+status,
+                'warning'
+            ));
+
+            bar(box,
+                (d.days-a.remaining)/d.days*100
+            );
+
+            button(
+                box,
+                a.paused?'Resume':'Pause',
+                ()=>show(
+                    progression.pauseResearch(!a.paused),
+                    'Research schedule updated.'
+                )
+            );
+
+            button(box,'Cancel research',()=>{
+
+                if(!confirm(
+                    'Cancel research and refund unused days?'
+                )) return;
+
+                const r=progression.cancelResearch();
+
+                show(r,
+                    'Research cancelled. Refund: '+
+                    money(r.refund||0)
+                );
+
+            });
+
+        }else if(status==='prerequisite'){
+
+            box.appendChild(element(
+                'div',
+                'Requires '+RESEARCH[d.requires].name,
+                'muted'
+            ));
+
+        }else{
+
+            button(
+                box,
+                'Start research',
+                ()=>show(
+                    progression.startResearch(id),
+                    'Research started.'
+                ),
+                !!progression.active || town.cash<d.cost
+            ).className='confirm';
+
+        }
+
+    }
+
+}
+
+// ==========================================
+// ACHIEVEMENTS
+// ==========================================
+
+function renderAchievements(){
+
+    $('achievements').replaceChildren();
+
+    const m=progression.metrics();
+
+    for(const [id,d] of Object.entries(ACHIEVEMENTS)){
+
+        const unlocked=progression.achievements.has(id);
+
+        const box=card(
+            $('achievements'),
+            (unlocked?'🏆 ':'🔒 ')+d.name
+        );
+
+        box.appendChild(element(
+            'div',
+            LABELS[d.metric]+' · '+
+            Math.min(d.target,m[d.metric])+'/'+d.target,
+            'muted'
+        ));
+
+        bar(box,
+            unlocked?100:m[d.metric]/d.target*100
+        );
+
+        if(unlocked){
+
+            box.appendChild(element(
+                'strong','Achievement unlocked','valid'
+            ));
+
+        }
+
+    }
+
+}
+
+// ==========================================
+// OPTIONAL OBJECTIVES
+// ==========================================
+
+function renderObjectives(){
+
+    $('objectives').replaceChildren();
+
+    for(const [id,d] of Object.entries(OBJECTIVES)){
+
+        const o=progression.objectives.get(id);
+
+        const current=progression.objectiveProgress(id);
+
+        const box=card($('objectives'),d.name);
+
+        box.appendChild(element(
+            'div',
+            LABELS[d.metric]+': '+d.target+
+            ' additional · Reward '+money(d.reward),
+            'muted'
+        ));
+
+        if(o.status==='completed'){
+
+            box.appendChild(element(
+                'strong','✓ Reward collected','valid'
+            ));
+
+            bar(box,100);
+
+        }else if(o.status==='active'){
+
+            box.appendChild(element(
+                'p',
+                Math.min(current,d.target)+'/'+d.target
+            ));
+
+            bar(box,current/d.target*100);
+
+            button(
+                box,
+                'Claim reward',
+                ()=>show(
+                    progression.claimObjective(id),
+                    'Objective completed!'
+                ),
+                current<d.target
+            ).className='confirm';
+
+            button(
+                box,
+                'Cancel objective',
+                ()=>show(
+                    progression.cancelObjective(id),
+                    'Objective cancelled without penalty.'
+                )
+            );
+
+        }else{
+
+            button(
+                box,
+                'Accept objective',
+                ()=>show(
+                    progression.acceptObjective(id),
+                    'Objective accepted.'
+                )
+            );
+
+        }
+
+    }
+
+}
+
+// ==========================================
+// FARM MANAGEMENT
+// ==========================================
+
+function fieldId(){
+
+    return Number($('field').value);
+
+}
+
+function renderFields(){
+
+    const previous=$('field').value;
+
+    $('field').replaceChildren();
+
+    for(const [id,f] of farm.fields){
+
+        const b=town.buildings.get(id);
+
+        const name=TownFarmBuildings[b.type].name;
+
+        option(
+            $('field'),
+            id,
+            name+' #'+id
+        );
+
+    }
+
+    if(farm.fields.has(Number(previous)))
+        $('field').value=previous;
+
+    const id=fieldId();
+
+    const f=farm.fields.get(id);
+
+    const a=progression.automation.get(id);
+
+    $('fieldStatus').textContent=f?.crop
+
+        ? CROPS[f.crop].name+' · '+farm.stage(id)
+
+        : f?'Empty field':'No fields available';
+
+    if(f?.crop)
+        $('crop').value=f.crop;
+
+    $('crop').disabled=!f||!!f.crop;
+
+    $('plant').disabled=!f||!!f.crop;
+
+    $('harvest').disabled=
+        !f||farm.stage(id)!=='Ready to harvest';
+
+    $('autoHarvest').checked=!!a?.harvest;
+
+    $('autoReplant').checked=!!a?.replant;
+
+    $('autoHarvest').disabled=
+        !f||!progression.researched.has('harvesting');
+
+    $('autoReplant').disabled=
+        !a?.harvest||
+        !progression.researched.has('replanting');
+
+    $('automationInfo').textContent=
+
+        !progression.researched.has('harvesting')
+
+            ?'Research agricultural automation to enable this.'
+
+            :a?.harvest
+
+                ?'Automatic harvesting enabled.'
+
+                :'Manual harvesting selected.';
+
+}
+
+$('field').onchange=renderFields;
+
+$('plant').onclick=()=>{
+
+    show(
+        farm.plant(fieldId(),$('crop').value),
+        'Crop planted.'
+    );
+
+};
+
+$('harvest').onclick=()=>{
+
+    show(
+        progression.harvest(fieldId()),
+        'Crop harvested.'
+    );
+
+};
+
+$('autoHarvest').onchange=()=>{
+
+    show(
+        progression.setAutomation(
+            fieldId(),
+            $('autoHarvest').checked,
+            $('autoHarvest').checked &&
+            $('autoReplant').checked
+        ),
+        'Harvest automation updated.'
+    );
+
+};
+
+$('autoReplant').onchange=()=>{
+
+    show(
+        progression.setAutomation(
+            fieldId(),
+            $('autoHarvest').checked,
+            $('autoReplant').checked
+        ),
+        'Replanting automation updated.'
+    );
+
+};
+
+// ==========================================
+// MANUFACTURING
+// ==========================================
+
+$('mill').onclick=()=>{
+
+    const f=industry.factories.get(millId);
+
+    const r=f.enabled
+
+        ?industry.setRunning(millId,false)
+
+        :industry.configure(millId,'millWheat');
+
+    show(r,'Mill production updated.');
+
+};
+
+// ==========================================
+// TEST CONSTRUCTION
+// ==========================================
+
+$('build').onclick=()=>{
+
+    const type=$('building').value;
+
+    for(let y=0;y<town.height;y++){
+
+        for(let x=0;x<town.width;x++){
+
+            if(!town.preview(type,x,y).ok)
+                continue;
+
+            const result=town.place(type,x,y);
+
+            show(result,'Property constructed.');
+
+            return;
+
+        }
+
+    }
+
+    notice(
+        'No suitable location or insufficient funds.',
+        false
+    );
+
+    update();
+
+};
+
+// ==========================================
+// TRADE
+// ==========================================
+
+function renderImport(){
+
+    const product=$('product').value;
+
+    const quantity=Number($('quantity').value);
+
+    const valid=
+        Number.isSafeInteger(quantity) &&
+        quantity>=1 && quantity<=10000;
+
+    const price=progression.importPrice(product);
+
+    $('importInfo').textContent=valid
+
+        ?money(price)+' per unit · Total '+
+         money(price*quantity)
+
+        :'Enter a valid quantity';
+
+    $('import').disabled=
+        !valid||
+        price*quantity>town.cash||
+        quantity>farm.freeSpace();
+
+}
+
+$('product').onchange=renderImport;
+$('quantity').oninput=renderImport;
+
+$('import').onclick=()=>{
+
+    show(
+        progression.importGoods(
+            $('product').value,
+            Number($('quantity').value)
+        ),
+        'Goods imported.'
+    );
+
+};
+
+function renderInventory(){
+
+    $('inventory').replaceChildren();
+
+    for(const [id,n] of farm.stock){
+
+        const d=PRODUCTS[id];
+
+        const row=document.createElement('tr');
+
+        row.append(
+            element('td',d.name),
+            element('td',n),
+            element('td',money(d.price))
+        );
+
+        const actions=document.createElement('td');
+
+        button(
+            actions,
+            'Export all',
+            ()=>show(
+                progression.exportGoods(id,n),
+                'Goods exported.'
+            )
+        );
+
+        row.appendChild(actions);
+
+        $('inventory').appendChild(row);
+
+    }
+
+}
+
+// ==========================================
+// STATISTICS & SHARED CLOCK
+// ==========================================
+
+function update(){
+
+    farm.sync();
+    industry.sync();
+    economy.sync();
+
+    progression.checkAchievements();
+
+    $('day').textContent=farm.day;
+
+    $('cash').textContent=money(town.cash);
+
+    $('researchCount').textContent=
+        progression.researched.size+'/'+
+        Object.keys(RESEARCH).length;
+
+    $('achievementCount').textContent=
+        progression.achievements.size+'/'+
+        Object.keys(ACHIEVEMENTS).length;
+
+    $('storage').textContent=
+        farm.used()+'/'+farm.capacity();
+
+    $('message').textContent=message;
+
+    $('message').className=
+        messageOK?'valid':'invalid';
+
+    const mill=industry.factories.get(millId);
+
+    $('millStatus').textContent=
+        mill.status+' · '+mill.completed+
+        ' completed batches';
+
+    $('mill').textContent=mill.enabled
+
+        ?'Pause flour production'
+
+        :'Start flour production';
+
+    renderResearch();
+    renderAchievements();
+    renderObjectives();
+    renderFields();
+    renderImport();
+    renderInventory();
+
+    $('metrics').replaceChildren();
+
+    for(const [id,n] of Object.entries(
+        progression.metrics()
+    )){
+
+        $('metrics').appendChild(element(
+            'p',LABELS[id]+': '+n
+        ));
+
+    }
+
+    $('metrics').appendChild(element(
+        'p',
+        'Objective rewards: '+
+        money(progression.objectiveRevenue)
+    ));
+
+    $('log').replaceChildren();
+
+    for(const text of farm.messages){
+
+        $('log').appendChild(element('div',text));
+
+    }
+
+}
+
+for(const days of [1,3,7]){
+
+    $('day'+days).onclick=()=>show(
+        progression.advance(days),
+        days+' simulation day(s) completed.'
+    );
+
+}
+
+$('reset').onclick=()=>reset(true);
+
+// ==========================================
+// AUTOMATED PROGRESSION TESTS
+// ==========================================
+
+let passed=0;
+let failed=0;
+
+function test(name,fn){
+
+    const row=element('div','','test');
+
+    row.appendChild(element('span',name));
+
+    let ok=false;
+
+    try{
+
+        ok=!!fn();
+
+    }catch(error){
+
+        row.title=error.message;
+
+    }
+
+    row.appendChild(element(
+        'strong',
+        ok?'PASS':'FAIL',
+        ok?'valid':'invalid'
+    ));
+
+    if(ok) passed++;
+    else failed++;
+
+    $('tests').appendChild(row);
+
+}
+
+test('Research charges correct cost',()=>{
+
+    const {t,p}=createWorld();
+
+    const cash=t.cash;
+
+    return p.startResearch('harvesting').ok &&
+        t.cash===cash-120;
+
+});
+
+test('Research requires simulation time',()=>{
+
+    const {p}=createWorld();
+
+    p.startResearch('harvesting');
+
+    p.advance();
+
+    if(p.researched.has('harvesting')) return false;
+
+    p.advance();
+
+    return p.researched.has('harvesting');
+
+});
+
+test('Research cannot be purchased twice',()=>{
+
+    const {p}=createWorld();
+
+    p.startResearch('harvesting');
+
+    p.advance(2);
+
+    return !p.startResearch('harvesting').ok;
+
+});
+
+test('Paused research preserves progress',()=>{
+
+    const {p}=createWorld();
+
+    p.startResearch('storage');
+
+    p.pauseResearch();
+
+    p.advance(3);
+
+    return p.active.remaining===3;
+
+});
+
+test('Cancelled research refunds unused days',()=>{
+
+    const {p}=createWorld();
+
+    p.startResearch('storage');
+
+    p.advance();
+
+    return p.cancelResearch().refund===100;
+
+});
+
+test('Research increases storage capacity',()=>{
+
+    const {p,f}=createWorld();
+
+    const before=f.capacity();
+
+    p.startResearch('storage');
+
+    p.advance(3);
+
+    return f.capacity()===before+40;
+
+});
+
+test('Automatic harvesting requires research',()=>{
+
+    const {p,field}=createWorld();
+
+    return !p.setAutomation(field,true).ok;
+
+});
+
+test('Automatic harvesting collects mature crops',()=>{
+
+    const {p,f,field}=createWorld();
+
+    p.startResearch('harvesting');
+
+    p.advance(2);
+
+    p.setAutomation(field,true);
+
+    f.plant(field,'wheat');
+
+    p.advance(3);
+
+    return p.harvested===24 &&
+        f.amount('wheat')===24 &&
+        f.fields.get(field).crop===null;
+
+});
+
+test('Automatic replanting starts another crop',()=>{
+
+    const {p,f,field}=createWorld();
+
+    p.startResearch('harvesting');
+
+    p.advance(2);
+
+    p.startResearch('replanting');
+
+    p.advance(2);
+
+    p.setAutomation(field,true,true);
+
+    f.plant(field,'wheat');
+
+    p.advance(3);
+
+    return f.fields.get(field).crop==='wheat' &&
+        p.harvested===24;
+
+});
+
+test('Trade research reduces import prices',()=>{
+
+    const {p,i}=createWorld();
+
+    const before=i.importPrice('bread');
+
+    p.startResearch('logistics');
+
+    p.advance(3);
+
+    return p.importPrice('bread')<before &&
+        p.importPrice('bread')>PRODUCTS.bread.price;
+
+});
+
+test('Objective rewards cannot be collected twice',()=>{
+
+    const {t,p}=createWorld();
+
+    p.acceptObjective('housing');
+
+    t.place('econCottage',1,6);
+
+    t.place('econCottage',3,6);
+
+    const cash=t.cash;
+
+    return p.claimObjective('housing').ok &&
+        t.cash===cash+200 &&
+        !p.claimObjective('housing').ok;
+
+});
+
+test('Achievements remain unlocked',()=>{
+
+    const {t,p}=createWorld();
+
+    const ids=[];
+
+    for(let x=1;x<=5;x++){
+
+        ids.push(
+            t.place('econCottage',x,6).building.id
+        );
+
+    }
+
+    p.checkAchievements();
+
+    if(!p.achievements.has('village'))
+        return false;
+
+    for(const id of ids)
+        t.remove(id);
+
+    p.checkAchievements();
+
+    return p.achievements.has('village');
+
+});
+
+$('summary').textContent=
+    passed+' tests passed · '+failed+' tests failed';
+
+$('summary').className=
+    failed?'invalid':'valid';
+
+reset();
+
+})();
+
+</script>
+
+</body>
+</html>
