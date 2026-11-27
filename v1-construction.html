@@ -1,0 +1,2141 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>Town Builder V1.0 — Construction</title>
+
+<style>
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        background: #101e18;
+        color: #eaf1e7;
+        font-family: Arial, sans-serif;
+    }
+
+    header {
+        padding: 18px;
+        background: #1a3024;
+        border-bottom: 1px solid #405747;
+    }
+
+    h1 {
+        font-size: 22px;
+        color: #c2e3a4;
+        margin: 0 0 6px;
+    }
+
+    h2 {
+        font-size: 16px;
+        color: #c6dfb7;
+        margin: 0 0 12px;
+    }
+
+    .subtitle {
+        color: #a3b8a6;
+        font-size: 13px;
+    }
+
+    .statistics {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .stat {
+        background: #294335;
+        border: 1px solid #45614b;
+        border-radius: 8px;
+        padding: 9px 14px;
+        font-size: 14px;
+    }
+
+    .workspace {
+        display: grid;
+        grid-template-columns: 250px minmax(0,1fr);
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .panel {
+        background: #1b2e24;
+        border: 1px solid #3a5140;
+        border-radius: 12px;
+        padding: 13px;
+        min-width: 0;
+    }
+
+    button, select {
+        font: inherit;
+        background: #304b38;
+        color: #f2f6ec;
+        border: 1px solid #4c694e;
+        border-radius: 8px;
+        padding: 11px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        filter: brightness(1.15);
+    }
+
+    button:disabled {
+        opacity: .4;
+        cursor: default;
+    }
+
+    button.active {
+        border-color: #c3e89c;
+        background: #476b3f;
+    }
+
+    .catalogue {
+        display: grid;
+        gap: 8px;
+    }
+
+    .building {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+        width: 100%;
+        padding: 10px;
+    }
+
+    .building-icon {
+        font-size: 28px;
+    }
+
+    .building small {
+        display: block;
+        color: #bad0b3;
+        margin-top: 4px;
+    }
+
+    .tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+
+    canvas {
+        display: block;
+        background: #13291e;
+        width: 100%;
+        height: 65vh;
+        min-height: 380px;
+        border-radius: 8px;
+        touch-action: none;
+        cursor: crosshair;
+    }
+
+    .placement {
+        margin-top: 10px;
+        background: #263e2e;
+        padding: 12px;
+        border-radius: 9px;
+    }
+
+    .placement h3 {
+        margin: 0 0 8px;
+        font-size: 16px;
+    }
+
+    .actions {
+        display: grid;
+        grid-template-columns: repeat(3,1fr);
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .confirm {
+        background: #488f50;
+        border-color: #6eb876;
+        font-weight: bold;
+    }
+
+    .rotate {
+        background: #365b83;
+        border-color: #5b87b5;
+    }
+
+    .cancel {
+        background: #934a43;
+        border-color: #b96258;
+    }
+
+    .valid {
+        color: #b2e99f;
+    }
+
+    .invalid {
+        color: #ffaaa0;
+    }
+
+    .muted {
+        color: #abc0ac;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    .test-panel {
+        margin: 0 12px 12px;
+    }
+
+    .test {
+        display: flex;
+        justify-content: space-between;
+        padding: 9px 0;
+        border-bottom: 1px solid #405747;
+        font-size: 13px;
+    }
+
+    a {
+        color: #b9e0a6;
+    }
+
+    footer {
+        padding: 16px;
+        font-size: 13px;
+    }
+
+    @media (max-width: 720px) {
+
+        .workspace {
+            grid-template-columns: 1fr;
+        }
+
+        .catalogue {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        canvas {
+            height: 52vh;
+            min-height: 320px;
+        }
+
+        .building {
+            font-size: 12px;
+        }
+
+    }
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+    <h1>Town Builder V1.0</h1>
+
+    <div class="subtitle">
+        Development Workspace — Construction & Placement
+    </div>
+
+    <div class="statistics">
+
+        <div class="stat">
+            Cash: <strong id="cash"></strong>
+        </div>
+
+        <div class="stat">
+            Buildings: <strong id="count">0</strong>
+        </div>
+
+    </div>
+
+</header>
+
+<div class="workspace">
+
+    <aside class="panel">
+
+        <h2>Construction catalogue</h2>
+
+        <div id="catalogue" class="catalogue"></div>
+
+        <p class="muted">
+
+            Select a building and tap the map.
+            Rotate or reposition the preview,
+            then confirm using the green tick.
+
+        </p>
+
+        <hr style="border:0;
+                   border-top:1px solid #405747">
+
+        <h2>Test landscape</h2>
+
+        <select id="landscape"
+                style="width:100%">
+
+            <option value="coast">
+                Coastal
+            </option>
+
+            <option value="island">
+                Island
+            </option>
+
+            <option value="countryside">
+                Countryside
+            </option>
+
+            <option value="flat">
+                Flat land
+            </option>
+
+        </select>
+
+        <button id="reset"
+                style="width:100%;margin-top:8px">
+
+            Reset test world
+
+        </button>
+
+    </aside>
+
+    <section class="panel">
+
+        <div class="tools">
+
+            <button id="inspect" class="active">
+                Select / Inspect
+            </button>
+
+            <button id="pan">
+                Move map
+            </button>
+
+            <button id="zoomIn">＋</button>
+
+            <button id="zoomOut">−</button>
+
+            <button id="fit">Fit map</button>
+
+        </div>
+
+        <canvas id="map"></canvas>
+
+        <div id="placement"
+             class="placement hidden">
+
+            <h3 id="placementTitle"></h3>
+
+            <div id="placementDetails"
+                 class="muted"></div>
+
+            <p id="validation"></p>
+
+            <div class="actions">
+
+                <button id="cancel" class="cancel">
+
+                    ✕ Cancel
+
+                </button>
+
+                <button id="rotate" class="rotate">
+
+                    ↻ Rotate
+
+                </button>
+
+                <button id="confirm" class="confirm">
+
+                    ✓ Confirm
+
+                </button>
+
+            </div>
+
+        </div>
+
+        <div id="property"
+             class="placement hidden">
+
+            <h3 id="propertyName"></h3>
+
+            <div id="propertyDetails"
+                 class="muted"></div>
+
+            <div class="actions">
+
+                <button id="moveBuilding">
+
+                    Move
+
+                </button>
+
+                <button id="rotateBuilding"
+                        class="rotate">
+
+                    Rotate
+
+                </button>
+
+                <button id="demolish"
+                        class="cancel">
+
+                    Demolish
+
+                </button>
+
+            </div>
+
+        </div>
+
+        <p id="status" class="muted">
+
+            Select a building to begin.
+
+        </p>
+
+    </section>
+
+</div>
+
+<section class="panel test-panel">
+
+    <h2>Construction engine tests</h2>
+
+    <div id="tests"></div>
+
+    <h3 id="summary"></h3>
+
+</section>
+
+<footer>
+
+    <a href="./v1-test.html">
+        Core tests
+    </a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-terrain.html">
+        Terrain editor
+    </a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./index.html">
+        Existing game
+    </a>
+
+</footer>
+
+<script src="./js/engine.js"></script>
+<script src="./js/terrain.js"></script>
+<script src="./js/construction.js"></script>
+
+<script>
+
+(() => {
+
+    'use strict';
+
+    const $ = id => document.getElementById(id);
+
+    const canvas = $('map');
+
+    const ctx = canvas.getContext('2d');
+
+    // ==========================================
+    // TEMPORARY CONSTRUCTION TEST CATALOGUE
+    // ==========================================
+
+    const catalogue = [
+
+        {
+            id: 'cottage',
+            name: 'Country cottage',
+            icon: '🏡',
+            width: 1,
+            height: 1,
+            cost: 250,
+            visualHeight: 24,
+            wall: '#e4cba3',
+            roof: '#b86749'
+        },
+
+        {
+            id: 'shop',
+            name: 'Local shop',
+            icon: '🏪',
+            width: 2,
+            height: 1,
+            cost: 400,
+            visualHeight: 25,
+            wall: '#dfc5a0',
+            roof: '#587f81'
+        },
+
+        {
+            id: 'hotel',
+            name: 'Hotel',
+            icon: '🏨',
+            width: 2,
+            height: 2,
+            cost: 1200,
+            visualHeight: 65,
+            wall: '#d9c9ae',
+            roof: '#6f7989'
+        },
+
+        {
+            id: 'factory',
+            name: 'Factory',
+            icon: '🏭',
+            width: 3,
+            height: 2,
+            cost: 1500,
+            visualHeight: 32,
+            wall: '#bfa38b',
+            roof: '#7b8186'
+        },
+
+        {
+            id: 'stadium',
+            name: 'Sports stadium',
+            icon: '🏟️',
+            width: 4,
+            height: 3,
+            cost: 2500,
+            visualHeight: 28,
+            wall: '#c3c8c6',
+            roof: '#6e98a2'
+        },
+
+        {
+            id: 'beachhut',
+            name: 'Beach hut',
+            icon: '🏖️',
+            width: 1,
+            height: 1,
+            cost: 150,
+            surfaces: ['sand'],
+            visualHeight: 16,
+            wall: '#e2dfcb',
+            roof: '#4e9abb'
+        }
+
+    ];
+
+    const definitions = new Map(
+
+        catalogue.map(item => [item.id, item])
+
+    );
+
+    const colours = {
+
+        grass: '#91bd68',
+        sand: '#e4d09b',
+        soil: '#92704a',
+        gravel: '#aaa89a',
+        paving: '#a6a9a4',
+        water: '#4999ba'
+
+    };
+
+    const HW = 24;
+    const HH = 12;
+
+    let town;
+    let terrain;
+    let construction;
+
+    let selectedId = null;
+
+    let mode = 'inspect';
+
+    let zoom = 1;
+
+    let ox = 0;
+    let oy = 0;
+
+    let drag = null;
+    let pendingFrame = false;
+
+    let message = 'Select a building to begin.';
+
+    // ==========================================
+    // WORLD CREATION
+    // ==========================================
+
+    function registerBuildings(t) {
+
+        for (const item of catalogue) {
+
+            t.register(item.id, item);
+
+        }
+
+    }
+
+    function resetWorld(ask = false) {
+
+        if (
+
+            ask &&
+
+            !confirm(
+                'Reset this construction test world?'
+            )
+
+        ) return;
+
+        town = new TownEngine({
+
+            width: 40,
+
+            height: 40,
+
+            cash: 10000
+
+        });
+
+        registerBuildings(town);
+
+        terrain = new TownTerrain(town);
+
+        terrain.generate(
+
+            $('landscape').value,
+
+            42
+
+        );
+
+        construction = new TownConstruction(town);
+
+        selectedId = null;
+
+        drag = null;
+
+        mode = 'inspect';
+
+        message = 'New construction test world created.';
+
+        fitMap();
+
+        update();
+
+    }
+
+    // ==========================================
+    // ISOMETRIC PROJECTION
+    // ==========================================
+
+    function project(x, y, z = 0) {
+
+        return [
+
+            (x - y) * HW,
+
+            (x + y) * HH - z
+
+        ];
+
+    }
+
+    function tileAt(px, py) {
+
+        const wx = (px - ox) / zoom;
+
+        const wy = (py - oy) / zoom;
+
+        return {
+
+            x: Math.floor(
+
+                (wy / HH + wx / HW) / 2
+
+            ),
+
+            y: Math.floor(
+
+                (wy / HH - wx / HW) / 2
+
+            )
+
+        };
+
+    }
+
+    function polygon(points, fill, stroke) {
+
+        ctx.beginPath();
+
+        ctx.moveTo(...points[0]);
+
+        for (let i = 1; i < points.length; i++) {
+
+            ctx.lineTo(...points[i]);
+
+        }
+
+        ctx.closePath();
+
+        if (fill) {
+
+            ctx.fillStyle = fill;
+
+            ctx.fill();
+
+        }
+
+        if (stroke) {
+
+            ctx.strokeStyle = stroke;
+
+            ctx.lineWidth = 1;
+
+            ctx.stroke();
+
+        }
+
+    }
+
+    function footprint(x, y, w, h, z = 0) {
+
+        return [
+
+            project(x, y, z),
+
+            project(x + w, y, z),
+
+            project(x + w, y + h, z),
+
+            project(x, y + h, z)
+
+        ];
+
+    }
+
+    // ==========================================
+    // TERRAIN RENDERING
+    // ==========================================
+
+    function drawTerrain() {
+
+        for (let y = 0; y < town.height; y++) {
+
+            for (let x = 0; x < town.width; x++) {
+
+                const s = town.getTerrain(x, y);
+
+                const shade = colours[s];
+
+                polygon(
+
+                    footprint(x, y, 1, 1),
+
+                    shade,
+
+                    'rgba(40,65,30,.13)'
+
+                );
+
+            }
+
+        }
+
+    }
+
+    // ==========================================
+    // TEMPORARY 3D BUILDING MODELS
+    // ==========================================
+
+    function drawBuilding(b, ghost = false) {
+
+        const d = definitions.get(b.type);
+
+        if (!d) return;
+
+        const x = b.x;
+        const y = b.y;
+        const w = b.width;
+        const h = b.height;
+
+        const height = d.visualHeight;
+
+        ctx.save();
+
+        if (ghost) ctx.globalAlpha = .68;
+
+        const ground = footprint(x, y, w, h);
+
+        const roof = footprint(x, y, w, h, height);
+
+        // Ground foundation
+
+        polygon(
+
+            ground,
+
+            '#d7d0b5',
+
+            '#65734e'
+
+        );
+
+        // Right wall
+
+        polygon(
+
+            [
+                roof[1],
+                roof[2],
+                ground[2],
+                ground[1]
+            ],
+
+            d.wall,
+
+            '#756e60'
+
+        );
+
+        // Left wall
+
+        polygon(
+
+            [
+                roof[2],
+                roof[3],
+                ground[3],
+                ground[2]
+            ],
+
+            d.wall,
+
+            '#756e60'
+
+        );
+
+        // Wall shading
+
+        polygon(
+
+            [
+                roof[2],
+                roof[3],
+                ground[3],
+                ground[2]
+            ],
+
+            'rgba(0,0,0,.14)'
+
+        );
+
+        // Roof
+
+        polygon(
+
+            roof,
+
+            d.roof,
+
+            '#59605b'
+
+        );
+
+        // Roof inset
+
+        const inset = .14;
+
+        polygon(
+
+            footprint(
+
+                x + inset,
+
+                y + inset,
+
+                w - inset * 2,
+
+                h - inset * 2,
+
+                height + 2
+
+            ),
+
+            'rgba(255,255,255,.12)',
+
+            'rgba(0,0,0,.14)'
+
+        );
+
+        // Visible windows
+
+        const floors = Math.max(
+
+            1,
+
+            Math.floor(height / 22)
+
+        );
+
+        for (let f = 0; f < floors; f++) {
+
+            const z = 9 + f * 20;
+
+            for (let i = 0; i < w; i++) {
+
+                const a = x + i + .27;
+
+                const end = a + .4;
+
+                polygon(
+
+                    [
+                        project(a, y+h, z+7),
+                        project(end, y+h, z+7),
+                        project(end, y+h, z),
+                        project(a, y+h, z)
+                    ],
+
+                    '#7bb7c7',
+
+                    '#e8e3d4'
+
+                );
+
+            }
+
+            for (let i = 0; i < h; i++) {
+
+                const a = y + i + .27;
+
+                const end = a + .4;
+
+                polygon(
+
+                    [
+                        project(x+w, a, z+7),
+                        project(x+w, end, z+7),
+                        project(x+w, end, z),
+                        project(x+w, a, z)
+                    ],
+
+                    '#7bb7c7',
+
+                    '#e8e3d4'
+
+                );
+
+            }
+
+        }
+
+        ctx.restore();
+
+    }
+
+    // ==========================================
+    // DIRECTION INDICATOR
+    // ==========================================
+
+    function drawDirection(b) {
+
+        const edges = [
+
+            [
+                b.x + b.width / 2,
+                b.y + b.height
+            ],
+
+            [
+                b.x,
+                b.y + b.height / 2
+            ],
+
+            [
+                b.x + b.width / 2,
+                b.y
+            ],
+
+            [
+                b.x + b.width,
+                b.y + b.height / 2
+            ]
+
+        ];
+
+        const edge = edges[b.rotation];
+
+        const p = project(...edge);
+
+        ctx.save();
+
+        ctx.fillStyle = '#fff2a1';
+
+        ctx.strokeStyle = '#3c5033';
+
+        ctx.lineWidth = 1.5;
+
+        ctx.beginPath();
+
+        ctx.arc(p[0], p[1], 5, 0, Math.PI * 2);
+
+        ctx.fill();
+
+        ctx.stroke();
+
+        ctx.restore();
+
+    }
+
+    // ==========================================
+    // PREVIEW RENDERING
+    // ==========================================
+
+    function drawPreview() {
+
+        const p = construction.pending;
+
+        if (!p || p.x === null || p.y === null) {
+
+            return;
+
+        }
+
+        const f = construction.footprint();
+
+        if (!f) return;
+
+        const valid = construction.preview().ok;
+
+        const red = !valid || p.action === 'remove';
+
+        const shape = footprint(
+
+            f.x,
+
+            f.y,
+
+            f.width,
+
+            f.height
+
+        );
+
+        polygon(
+
+            shape,
+
+            red
+                ? 'rgba(240,75,60,.4)'
+                : 'rgba(158,255,115,.45)',
+
+            red ? '#ff6e61' : '#ccff9d'
+
+        );
+
+        if (p.action !== 'remove') {
+
+            drawBuilding(
+
+                {
+                    type: p.type,
+                    ...f
+                },
+
+                true
+
+            );
+
+            drawDirection(f);
+
+        }
+
+        ctx.save();
+
+        ctx.setLineDash([5, 3]);
+
+        polygon(
+
+            shape,
+
+            null,
+
+            red ? '#ff6256' : '#d3ffb0'
+
+        );
+
+        ctx.restore();
+
+    }
+
+    // ==========================================
+    // COMPLETE MAP RENDER
+    // ==========================================
+
+    function render() {
+
+        if (!town) return;
+
+        const dpr = Math.min(
+
+            window.devicePixelRatio || 1,
+
+            2
+
+        );
+
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+
+        ctx.clearRect(
+
+            0,
+
+            0,
+
+            canvas.clientWidth,
+
+            canvas.clientHeight
+
+        );
+
+        ctx.save();
+
+        ctx.translate(ox, oy);
+
+        ctx.scale(zoom, zoom);
+
+        drawTerrain();
+
+        const buildings = [
+
+            ...town.buildings.values()
+
+        ].sort((a,b) =>
+
+            (a.x + a.y + a.width + a.height) -
+
+            (b.x + b.y + b.width + b.height)
+
+        );
+
+        for (const b of buildings) {
+
+            if (
+
+                construction.pending?.action === 'move' &&
+
+                construction.pending.id === b.id
+
+            ) {
+
+                ctx.save();
+
+                ctx.globalAlpha = .25;
+
+                drawBuilding(b);
+
+                ctx.restore();
+
+            } else {
+
+                drawBuilding(b);
+
+            }
+
+        }
+
+        if (selectedId !== null) {
+
+            const b = town.buildings.get(selectedId);
+
+            if (b) {
+
+                polygon(
+
+                    footprint(
+
+                        b.x,
+
+                        b.y,
+
+                        b.width,
+
+                        b.height
+
+                    ),
+
+                    null,
+
+                    '#ffdc77'
+
+                );
+
+                drawDirection(b);
+
+            }
+
+        }
+
+        drawPreview();
+
+        ctx.restore();
+
+    }
+
+    function redraw() {
+
+        if (pendingFrame) return;
+
+        pendingFrame = true;
+
+        requestAnimationFrame(() => {
+
+            pendingFrame = false;
+
+            render();
+
+        });
+
+    }
+
+    // ==========================================
+    // CAMERA
+    // ==========================================
+
+    function fitMap() {
+
+        if (!town) return;
+
+        zoom = Math.min(
+
+            canvas.clientWidth /
+
+                ((town.width + town.height) * HW + 60),
+
+            canvas.clientHeight /
+
+                ((town.width + town.height) * HH + 60),
+
+            2
+
+        );
+
+        const c = project(
+
+            town.width / 2,
+
+            town.height / 2
+
+        );
+
+        ox = canvas.clientWidth / 2 - c[0] * zoom;
+
+        oy = canvas.clientHeight / 2 - c[1] * zoom;
+
+        redraw();
+
+    }
+
+    function resize() {
+
+        const dpr = Math.min(
+
+            window.devicePixelRatio || 1,
+
+            2
+
+        );
+
+        canvas.width = Math.round(
+
+            canvas.clientWidth * dpr
+
+        );
+
+        canvas.height = Math.round(
+
+            canvas.clientHeight * dpr
+
+        );
+
+        fitMap();
+
+    }
+
+    function changeZoom(factor, px, py) {
+
+        const next = Math.max(
+
+            .06,
+
+            Math.min(3, zoom * factor)
+
+        );
+
+        ox = px - (px - ox) * next / zoom;
+
+        oy = py - (py - oy) * next / zoom;
+
+        zoom = next;
+
+        redraw();
+
+    }
+
+    // ==========================================
+    // CATALOGUE INTERFACE
+    // ==========================================
+
+    for (const item of catalogue) {
+
+        const button = document.createElement('button');
+
+        button.className = 'building';
+
+        button.dataset.type = item.id;
+
+        button.innerHTML =
+
+            '<span class="building-icon">' +
+
+            item.icon +
+
+            '</span><span>' +
+
+            item.name +
+
+            '<small>£' +
+
+            item.cost.toLocaleString('en-GB') +
+
+            ' · ' +
+
+            item.width +
+
+            ' × ' +
+
+            item.height +
+
+            '</small></span>';
+
+        button.onclick = () => {
+
+            construction.select(item.id);
+
+            selectedId = null;
+
+            mode = 'inspect';
+
+            message = 'Choose a construction location.';
+
+            update();
+
+        };
+
+        $('catalogue').appendChild(button);
+
+    }
+
+    // ==========================================
+    // PLACEMENT INTERFACE
+    // ==========================================
+
+    function update() {
+
+        $('cash').textContent =
+
+            '£' + town.cash.toLocaleString('en-GB');
+
+        $('count').textContent = town.buildings.size;
+
+        const p = construction.pending;
+
+        $('placement').classList.toggle(
+
+            'hidden',
+
+            !p
+
+        );
+
+        $('inspect').classList.toggle(
+
+            'active',
+
+            mode === 'inspect'
+
+        );
+
+        $('pan').classList.toggle(
+
+            'active',
+
+            mode === 'pan'
+
+        );
+
+        canvas.style.cursor =
+
+            mode === 'pan' ? 'grab' : 'crosshair';
+
+        for (
+
+            const button of
+
+            $('catalogue').querySelectorAll('button')
+
+        ) {
+
+            button.classList.toggle(
+
+                'active',
+
+                p?.action === 'build' &&
+
+                p.type === button.dataset.type
+
+            );
+
+        }
+
+        if (p) {
+
+            const item = definitions.get(p.type);
+
+            const shape = construction.footprint();
+
+            const check = construction.preview();
+
+            const action = {
+
+                build: 'Place',
+
+                move: 'Relocate',
+
+                remove: 'Demolish'
+
+            }[p.action];
+
+            $('placementTitle').textContent =
+
+                action + ' ' + item.name;
+
+            $('placementDetails').textContent =
+
+                shape.width + ' × ' +
+
+                shape.height + ' tiles | ' +
+
+                'Rotation: ' +
+
+                p.rotation * 90 + '° | ' +
+
+                (
+                    p.action === 'build'
+
+                        ? 'Cost: £' +
+
+                          item.cost.toLocaleString('en-GB')
+
+                        : 'No charge'
+                );
+
+            $('validation').textContent =
+
+                check.ok
+
+                    ? (
+                        p.action === 'remove'
+
+                            ? 'Confirm permanent demolition'
+
+                            : 'Valid construction location'
+                    )
+
+                    : check.reason;
+
+            $('validation').className =
+
+                check.ok ? 'valid' : 'invalid';
+
+            $('confirm').disabled = !check.ok;
+
+            $('rotate').disabled =
+
+                p.action === 'remove';
+
+            $('confirm').textContent =
+
+                p.action === 'remove'
+
+                    ? '✓ Demolish'
+
+                    : p.action === 'move'
+
+                        ? '✓ Move'
+
+                        : '✓ Build';
+
+        }
+
+        const b = town.buildings.get(selectedId);
+
+        $('property').classList.toggle(
+
+            'hidden',
+
+            !b || !!p
+
+        );
+
+        if (b && !p) {
+
+            $('propertyName').textContent =
+
+                definitions.get(b.type).name;
+
+            $('propertyDetails').textContent =
+
+                b.width + ' × ' + b.height +
+
+                ' tiles | Rotation: ' +
+
+                b.rotation * 90 + '°';
+
+        }
+
+        $('status').textContent = message;
+
+        redraw();
+
+    }
+
+    // ==========================================
+    // CONSTRUCTION BUTTONS
+    // ==========================================
+
+    $('rotate').onclick = () => {
+
+        construction.rotate();
+
+        update();
+
+    };
+
+    $('cancel').onclick = () => {
+
+        construction.cancel();
+
+        selectedId = null;
+
+        message = 'Action cancelled.';
+
+        update();
+
+    };
+
+    $('confirm').onclick = () => {
+
+        const action = construction.pending?.action;
+
+        const result = construction.confirm();
+
+        if (result.ok) {
+
+            selectedId = null;
+
+            message =
+
+                action === 'remove'
+
+                    ? 'Building demolished.'
+
+                    : action === 'move'
+
+                        ? 'Building relocated.'
+
+                        : 'Construction complete.';
+
+        } else {
+
+            message = result.reason || 'Action failed.';
+
+        }
+
+        update();
+
+    };
+
+    $('moveBuilding').onclick = () => {
+
+        construction.beginMove(selectedId);
+
+        mode = 'inspect';
+
+        message = 'Choose a new location.';
+
+        update();
+
+    };
+
+    $('rotateBuilding').onclick = () => {
+
+        construction.beginMove(selectedId);
+
+        construction.rotate();
+
+        mode = 'inspect';
+
+        message = 'Confirm the new orientation.';
+
+        update();
+
+    };
+
+    $('demolish').onclick = () => {
+
+        construction.beginRemove(selectedId);
+
+        message = 'Confirm or cancel demolition.';
+
+        update();
+
+    };
+
+    // ==========================================
+    // TOUCH AND MOUSE INTERACTION
+    // ==========================================
+
+    function pointerPosition(e) {
+
+        const rect = canvas.getBoundingClientRect();
+
+        return {
+
+            x: e.clientX - rect.left,
+
+            y: e.clientY - rect.top
+
+        };
+
+    }
+
+    canvas.addEventListener('pointerdown', e => {
+
+        if (drag || e.button !== 0) return;
+
+        const p = pointerPosition(e);
+
+        drag = {
+
+            id: e.pointerId,
+
+            x: p.x,
+
+            y: p.y,
+
+            mode
+
+        };
+
+        canvas.setPointerCapture(e.pointerId);
+
+        if (mode === 'pan') return;
+
+        const tile = tileAt(p.x, p.y);
+
+        if (construction.pending) {
+
+            construction.target(tile.x, tile.y);
+
+            message = 'Adjust or confirm the preview.';
+
+        } else {
+
+            const building = construction.buildingAt(
+
+                tile.x,
+
+                tile.y
+
+            );
+
+            selectedId = building?.id ?? null;
+
+            message = building
+
+                ? 'Building selected.'
+
+                : 'Select a building or construction type.';
+
+        }
+
+        update();
+
+    });
+
+    canvas.addEventListener('pointermove', e => {
+
+        if (!drag || drag.id !== e.pointerId) return;
+
+        const p = pointerPosition(e);
+
+        if (drag.mode === 'pan') {
+
+            ox += p.x - drag.x;
+
+            oy += p.y - drag.y;
+
+            redraw();
+
+        } else if (construction.pending) {
+
+            const tile = tileAt(p.x, p.y);
+
+            construction.target(tile.x, tile.y);
+
+            update();
+
+        }
+
+        drag.x = p.x;
+
+        drag.y = p.y;
+
+    });
+
+    function finishPointer(e) {
+
+        if (drag?.id === e.pointerId) {
+
+            drag = null;
+
+        }
+
+    }
+
+    canvas.addEventListener(
+
+        'pointerup',
+
+        finishPointer
+
+    );
+
+    canvas.addEventListener(
+
+        'pointercancel',
+
+        finishPointer
+
+    );
+
+    canvas.addEventListener(
+
+        'lostpointercapture',
+
+        finishPointer
+
+    );
+
+    canvas.addEventListener('wheel', e => {
+
+        e.preventDefault();
+
+        const p = pointerPosition(e);
+
+        changeZoom(
+
+            e.deltaY < 0 ? 1.15 : 1 / 1.15,
+
+            p.x,
+
+            p.y
+
+        );
+
+    }, {passive:false});
+
+    // ==========================================
+    // MAP BUTTONS
+    // ==========================================
+
+    $('inspect').onclick = () => {
+
+        mode = 'inspect';
+
+        update();
+
+    };
+
+    $('pan').onclick = () => {
+
+        mode = 'pan';
+
+        update();
+
+    };
+
+    $('zoomIn').onclick = () => {
+
+        changeZoom(
+
+            1.25,
+
+            canvas.clientWidth / 2,
+
+            canvas.clientHeight / 2
+
+        );
+
+    };
+
+    $('zoomOut').onclick = () => {
+
+        changeZoom(
+
+            .8,
+
+            canvas.clientWidth / 2,
+
+            canvas.clientHeight / 2
+
+        );
+
+    };
+
+    $('fit').onclick = fitMap;
+
+    $('reset').onclick = () => resetWorld(true);
+
+    // ==========================================
+    // AUTOMATED CONSTRUCTION TESTS
+    // ==========================================
+
+    let passed = 0;
+    let failed = 0;
+
+    function test(name, fn) {
+
+        const row = document.createElement('div');
+
+        row.className = 'test';
+
+        const label = document.createElement('span');
+
+        label.textContent = name;
+
+        const result = document.createElement('strong');
+
+        try {
+
+            if (!fn()) throw new Error('Test failed');
+
+            result.textContent = 'PASS';
+
+            result.className = 'valid';
+
+            passed++;
+
+        } catch(error) {
+
+            result.textContent = 'FAIL';
+
+            result.className = 'invalid';
+
+            result.title = error.message;
+
+            failed++;
+
+        }
+
+        row.append(label, result);
+
+        $('tests').appendChild(row);
+
+    }
+
+    function fixture() {
+
+        const t = new TownEngine({
+
+            width: 12,
+
+            height: 12,
+
+            cash: 10000
+
+        });
+
+        registerBuildings(t);
+
+        return {
+
+            t,
+
+            c: new TownConstruction(t)
+
+        };
+
+    }
+
+    test('Selection does not construct', () => {
+
+        const {t,c} = fixture();
+
+        c.select('shop');
+
+        return t.buildings.size === 0 &&
+
+            t.cash === 10000;
+
+    });
+
+    test('Preview does not spend money', () => {
+
+        const {t,c} = fixture();
+
+        c.select('shop');
+
+        c.target(2,2);
+
+        return c.preview().ok &&
+
+            t.cash === 10000 &&
+
+            t.buildings.size === 0;
+
+    });
+
+    test('Confirmation requires a location', () => {
+
+        const {t,c} = fixture();
+
+        c.select('shop');
+
+        return !c.confirm().ok &&
+
+            t.cash === 10000;
+
+    });
+
+    test('Cancel preserves money and land', () => {
+
+        const {t,c} = fixture();
+
+        c.select('shop');
+
+        c.target(2,2);
+
+        c.cancel();
+
+        return t.cash === 10000 &&
+
+            t.occupied.size === 0 &&
+
+            c.pending === null;
+
+    });
+
+    test('Rotation swaps rectangular footprint', () => {
+
+        const {c} = fixture();
+
+        c.select('shop');
+
+        c.rotate();
+
+        const f = c.footprint();
+
+        return f.width === 1 &&
+
+            f.height === 2;
+
+    });
+
+    test('Four rotations restore orientation', () => {
+
+        const {c} = fixture();
+
+        c.select('factory');
+
+        for (let i=0; i<4; i++) c.rotate();
+
+        return c.pending.rotation === 0;
+
+    });
+
+    test('Confirmed purchase charges once', () => {
+
+        const {t,c} = fixture();
+
+        c.select('shop');
+
+        c.target(2,2);
+
+        const result = c.confirm();
+
+        return result.ok &&
+
+            !c.confirm().ok &&
+
+            t.cash === 9600 &&
+
+            t.buildings.size === 1;
+
+    });
+
+    test('Invalid overlap prevents confirmation', () => {
+
+        const {t,c} = fixture();
+
+        t.place('shop',2,2);
+
+        c.select('hotel');
+
+        c.target(2,2);
+
+        return !c.confirm().ok &&
+
+            t.cash === 9600;
+
+    });
+
+    test('Beach hut requires sand', () => {
+
+        const {t,c} = fixture();
+
+        c.select('beachhut');
+
+        c.target(2,2);
+
+        if (c.preview().ok) return false;
+
+        t.setTerrain(2,2,'sand');
+
+        return c.preview().ok;
+
+    });
+
+    test('Relocation preserves building and cash', () => {
+
+        const {t,c} = fixture();
+
+        const b = t.place('shop',2,2).building;
+
+        c.beginMove(b.id);
+
+        c.target(5,5);
+
+        c.rotate();
+
+        return c.confirm().ok &&
+
+            t.cash === 9600 &&
+
+            t.buildings.size === 1 &&
+
+            t.buildings.get(b.id).x === 5 &&
+
+            !t.occupied.has(t.key(2,2));
+
+    });
+
+    test('Cancelled move preserves old location', () => {
+
+        const {t,c} = fixture();
+
+        const b = t.place('shop',2,2).building;
+
+        c.beginMove(b.id);
+
+        c.target(5,5);
+
+        c.cancel();
+
+        return t.buildings.get(b.id).x === 2;
+
+    });
+
+    test('Demolition requires confirmation', () => {
+
+        const {t,c} = fixture();
+
+        const b = t.place('shop',2,2).building;
+
+        c.beginRemove(b.id);
+
+        if (t.buildings.size !== 1) return false;
+
+        return c.confirm().ok &&
+
+            t.buildings.size === 0 &&
+
+            t.occupied.size === 0;
+
+    });
+
+    test('Cancelled demolition preserves building', () => {
+
+        const {t,c} = fixture();
+
+        const b = t.place('shop',2,2).building;
+
+        c.beginRemove(b.id);
+
+        c.cancel();
+
+        return t.buildings.has(b.id);
+
+    });
+
+    $('summary').textContent =
+
+        passed + ' tests passed · ' +
+
+        failed + ' tests failed';
+
+    $('summary').className =
+
+        failed ? 'invalid' : 'valid';
+
+    // ==========================================
+    // INITIALISE
+    // ==========================================
+
+    resetWorld();
+
+    resize();
+
+    new ResizeObserver(resize).observe(canvas);
+
+})();
+
+</script>
+
+</body>
+
+</html>
