@@ -1,1 +1,1 @@
-
+Decorative sprites
