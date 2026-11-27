@@ -1,0 +1,1999 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1">
+
+<title>Town Builder V1.0 — Economy</title>
+
+<style>
+
+* {box-sizing:border-box}
+
+body {
+    margin:0;
+    background:#101e18;
+    color:#edf4e9;
+    font-family:Arial,sans-serif;
+}
+
+header {
+    padding:18px;
+    background:#1b3024;
+    border-bottom:1px solid #405747;
+}
+
+h1 {
+    font-size:22px;
+    color:#c2e3a4;
+    margin:0 0 6px;
+}
+
+h2 {
+    font-size:16px;
+    color:#c6dfb7;
+    margin:0 0 12px;
+}
+
+h3 {font-size:15px}
+
+.muted {
+    color:#abc0ac;
+    font-size:13px;
+    line-height:1.6;
+}
+
+.workspace {
+    display:grid;
+    grid-template-columns:255px minmax(0,1fr);
+    gap:12px;
+    padding:12px;
+}
+
+.panel {
+    min-width:0;
+    padding:14px;
+    background:#1b2e24;
+    border:1px solid #405747;
+    border-radius:12px;
+}
+
+.stats,.toolbar {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:12px 0;
+}
+
+.stat {
+    padding:10px 14px;
+    background:#294335;
+    border:1px solid #45614b;
+    border-radius:8px;
+    font-size:14px;
+}
+
+button,select,input {
+    font:inherit;
+    padding:10px;
+    color:#eff6e9;
+    background:#304b38;
+    border:1px solid #4c694e;
+    border-radius:8px;
+}
+
+button {cursor:pointer}
+
+button:hover {filter:brightness(1.15)}
+
+button:disabled {
+    opacity:.4;
+    cursor:default;
+}
+
+select,input,.wide {width:100%}
+
+.wide {margin:6px 0}
+
+label {
+    display:block;
+    font-size:12px;
+    color:#b9ceb9;
+    margin:12px 0 6px;
+}
+
+.confirm {background:#488f50}
+.cancel {background:#934a43}
+.rotate {background:#365b83}
+
+.valid {color:#b2e99f}
+.invalid {color:#ffaaa0}
+.warning {color:#e9c775}
+
+.hidden {display:none!important}
+
+.section {
+    background:#263e2e;
+    border-radius:9px;
+    padding:12px;
+    margin:10px 0;
+}
+
+.map {
+    display:grid;
+    grid-template-columns:repeat(14,minmax(0,1fr));
+    gap:1px;
+    background:#42583c;
+    padding:4px;
+    border-radius:8px;
+}
+
+.tile {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    aspect-ratio:1;
+    width:100%;
+    min-width:0;
+    padding:0;
+    border:0;
+    border-radius:1px;
+    background:#91b775;
+    color:#263b26;
+    font-size:clamp(10px,2.3vw,26px);
+    overflow:hidden;
+    touch-action:manipulation;
+}
+
+.tile:nth-child(odd) {
+    background:#99bf7c;
+}
+
+.tile.housing {background:#d5c5a2}
+.tile.retail {background:#83b8c3}
+.tile.business {background:#b8a5c7}
+.tile.utility {background:#d0bd72}
+.tile.public {background:#b0b9c2}
+.tile.storage {background:#b69c80}
+.tile.factory {background:#939c99}
+
+.tile.selected {
+    box-shadow:inset 0 0 0 3px #fff2ac;
+}
+
+.tile.preview-valid {
+    box-shadow:inset 0 0 0 3px #d6ff9a;
+}
+
+.tile.preview-invalid {
+    box-shadow:inset 0 0 0 3px #ff7467;
+}
+
+.actions {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin:8px 0;
+}
+
+.bottom {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    padding:0 12px 12px;
+}
+
+.table-wrap {overflow-x:auto}
+
+table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+}
+
+th,td {
+    text-align:left;
+    padding:9px 6px;
+    border-bottom:1px solid #405747;
+}
+
+td button {
+    font-size:12px;
+    padding:6px;
+    margin:2px;
+}
+
+.contract {
+    background:#263e2e;
+    border:1px solid #405747;
+    padding:12px;
+    border-radius:9px;
+    margin:8px 0;
+}
+
+.contract strong {
+    display:block;
+    margin-bottom:6px;
+}
+
+.contract button {
+    margin:8px 5px 0 0;
+}
+
+.log {
+    max-height:250px;
+    overflow:auto;
+    font-size:13px;
+    line-height:1.8;
+    color:#b9cbb6;
+}
+
+.test-panel {margin:0 12px 12px}
+
+.test {
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:9px 0;
+    border-bottom:1px solid #405747;
+    font-size:13px;
+}
+
+a {color:#b9e0a6}
+
+footer {
+    padding:16px;
+    font-size:13px;
+}
+
+@media(max-width:720px) {
+
+    .workspace,.bottom {
+        grid-template-columns:1fr;
+    }
+
+    .actions button {
+        font-size:12px;
+        padding:10px 4px;
+    }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+
+<h1>Town Builder V1.0</h1>
+
+<div class="muted">
+    Development Workspace — Economy & Commerce
+</div>
+
+<div class="stats">
+
+    <div class="stat">
+        Day: <strong id="day"></strong>
+    </div>
+
+    <div class="stat">
+        Cash: <strong id="cash"></strong>
+    </div>
+
+    <div class="stat">
+        Households: <strong id="households"></strong>
+    </div>
+
+    <div class="stat">
+        Daily balance: <strong id="balance"></strong>
+    </div>
+
+    <div class="stat">
+        Unpaid bills: <strong id="arrears"></strong>
+    </div>
+
+</div>
+
+</header>
+
+<div class="workspace">
+
+<aside class="panel">
+
+    <h2>Council finances</h2>
+
+    <label for="householdTax">
+        Household tax: <span id="householdRate">10%</span>
+    </label>
+
+    <input id="householdTax"
+           type="range" min="0" max="30"
+           step="1" value="10">
+
+    <label for="businessTax">
+        Business tax: <span id="businessRate">15%</span>
+    </label>
+
+    <input id="businessTax"
+           type="range" min="0" max="30"
+           step="1" value="15">
+
+    <button id="payBills" class="wide">
+        Pay outstanding bills
+    </button>
+
+    <hr style="border:0;border-top:1px solid #405747">
+
+    <h2>Construction</h2>
+
+    <select id="buildingType"></select>
+
+    <p id="buildingInfo" class="muted"></p>
+
+    <button id="build" class="wide">
+        Select building
+    </button>
+
+    <hr style="border:0;border-top:1px solid #405747">
+
+    <h2>Import goods</h2>
+
+    <select id="product"></select>
+
+    <label for="quantity">Quantity</label>
+
+    <input id="quantity"
+           type="number" min="1"
+           max="10000" value="10">
+
+    <p id="importInfo" class="muted"></p>
+
+    <button id="import" class="wide confirm">
+        Purchase goods
+    </button>
+
+    <button id="reset" class="wide cancel">
+        Reset test town
+    </button>
+
+</aside>
+
+<section class="panel">
+
+    <h2>Town management</h2>
+
+    <div class="toolbar">
+
+        <button id="day1" class="confirm">
+            ☀ Advance 1 day
+        </button>
+
+        <button id="day3">
+            Advance 3 days
+        </button>
+
+        <button id="day7">
+            Advance 7 days
+        </button>
+
+    </div>
+
+    <p id="message" class="valid"></p>
+
+    <div id="placement" class="section hidden">
+
+        <p id="placementInfo"></p>
+
+        <div class="actions">
+
+            <button id="cancel" class="cancel">
+                ✕ Cancel
+            </button>
+
+            <button id="rotate" class="rotate">
+                ↻ Rotate
+            </button>
+
+            <button id="confirm" class="confirm">
+                ✓ Build
+            </button>
+
+        </div>
+
+    </div>
+
+    <div id="details" class="section hidden">
+
+        <h3 id="selectedName"></h3>
+
+        <p id="selectedInfo" class="muted"></p>
+
+        <div id="housingControls" class="hidden">
+
+            <label for="occupancy">
+                Occupied households
+            </label>
+
+            <input id="occupancy"
+                   type="number" min="0" step="1">
+
+            <button id="applyOccupancy"
+                    class="wide">
+                Update test occupancy
+            </button>
+
+        </div>
+
+        <div id="retailControls" class="hidden">
+
+            <label for="shopProduct">
+                Choose goods to sell
+            </label>
+
+            <select id="shopProduct"></select>
+
+            <button id="applyStock"
+                    class="wide confirm">
+                Set shop stock
+            </button>
+
+        </div>
+
+        <div id="factoryControls" class="hidden">
+
+            <button id="toggleMill" class="wide">
+                Start flour production
+            </button>
+
+        </div>
+
+    </div>
+
+    <div id="map" class="map"></div>
+
+    <p class="muted">
+        Select homes to inspect rent and occupancy.
+        Select shops to choose which products they sell.
+        Advance the day to collect income and pay bills.
+    </p>
+
+</section>
+
+</div>
+
+<div class="bottom">
+
+<section class="panel">
+
+    <h2>Daily financial statement</h2>
+
+    <div id="finance"></div>
+
+    <h3>Recent daily balances</h3>
+
+    <div class="table-wrap">
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Income</th>
+                    <th>Maintenance</th>
+                    <th>Cash change</th>
+                </tr>
+            </thead>
+
+            <tbody id="history"></tbody>
+
+        </table>
+    </div>
+
+</section>
+
+<section class="panel">
+
+    <h2>Shared inventory & exports</h2>
+
+    <p id="storage" class="muted"></p>
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Stock</th>
+                    <th>Export price</th>
+                    <th>Sell</th>
+                </tr>
+            </thead>
+
+            <tbody id="inventory"></tbody>
+
+        </table>
+
+    </div>
+
+</section>
+
+<section class="panel">
+
+    <h2>Optional trade contracts</h2>
+
+    <p id="contractRevenue" class="muted"></p>
+
+    <div id="contracts"></div>
+
+</section>
+
+<section class="panel">
+
+    <h2>Town activity</h2>
+
+    <div id="log" class="log"></div>
+
+</section>
+
+</div>
+
+<section class="panel test-panel">
+
+    <h2>Economy engine tests</h2>
+
+    <div id="tests"></div>
+
+    <h3 id="summary"></h3>
+
+</section>
+
+<footer>
+
+    <a href="./v1-industry.html">Industry</a>
+    &nbsp; | &nbsp;
+    <a href="./v1-farming.html">Farming</a>
+    &nbsp; | &nbsp;
+    <a href="./v1-utilities.html">Utilities</a>
+    &nbsp; | &nbsp;
+    <a href="./v1-transport.html">Transport</a>
+    &nbsp; | &nbsp;
+    <a href="./index.html">Existing game</a>
+
+</footer>
+
+<script src="./js/engine.js"></script>
+<script src="./js/construction.js"></script>
+<script src="./js/farming.js"></script>
+<script src="./js/industry.js"></script>
+<script src="./js/economy.js"></script>
+
+<script>
+
+(() => {
+
+'use strict';
+
+const $=id=>document.getElementById(id);
+
+const PRODUCTS=TownIndustryProducts;
+
+const CONTRACTS=TownTradeContracts;
+
+const BUILDINGS={
+
+    ...TownEconomyBuildings,
+
+    farmBarn:{
+
+        ...TownFarmBuildings.farmBarn,
+
+        icon:'🏚️'
+
+    },
+
+    farmWarehouse:{
+
+        ...TownFarmBuildings.farmWarehouse,
+
+        icon:'📦'
+
+    },
+
+    industryMill:{
+
+        ...TownIndustryBuildings.industryMill,
+
+        kind:'factory'
+
+    }
+
+};
+
+const WIDTH=14;
+const HEIGHT=10;
+
+let town,farm,industry,economy,construction;
+
+let selected=null;
+
+let lastSelected=null;
+
+let message='';
+
+let messageOK=true;
+
+const tiles=[];
+
+// ==========================================
+// GENERAL INTERFACE HELPERS
+// ==========================================
+
+function money(n) {
+
+    return (n<0?'−':'')+
+
+        '£'+Math.abs(n).toLocaleString('en-GB');
+
+}
+
+function hide(id,value) {
+
+    $(id).classList.toggle('hidden',value);
+
+}
+
+function option(select,value,label) {
+
+    const o=document.createElement('option');
+
+    o.value=value;
+    o.textContent=label;
+
+    select.appendChild(o);
+
+}
+
+function cell(row,text) {
+
+    const td=document.createElement('td');
+
+    td.textContent=text;
+
+    row.appendChild(td);
+
+    return td;
+
+}
+
+function notice(text,ok=true) {
+
+    message=text;
+    messageOK=ok;
+
+}
+
+function show(result,text) {
+
+    notice(
+
+        result.ok ? text : result.reason,
+
+        result.ok
+
+    );
+
+    update();
+
+}
+
+// ==========================================
+// CREATE THE STARTER TEST TOWN
+// ==========================================
+
+function reset(ask=false) {
+
+    if (
+
+        ask &&
+
+        !confirm('Reset this economy test town?')
+
+    ) return;
+
+    town=new TownEngine({
+
+        width:WIDTH,
+        height:HEIGHT,
+        cash:18000
+
+    });
+
+    farm=new TownFarming(town);
+
+    industry=new TownIndustry(town,farm);
+
+    economy=new TownEconomy(town,farm,industry);
+
+    construction=new TownConstruction(town);
+
+    // Residential properties
+
+    town.place('econCottage',1,1);
+    town.place('econFamilyHome',3,1);
+    town.place('econApartments',6,1);
+
+    // Retail and private businesses
+
+    town.place('econGrocer',1,4);
+    town.place('econClothingShop',4,4);
+    town.place('econCafe',7,4);
+
+    // Utility and council services
+
+    town.place('econSolar',1,7);
+    town.place('econWater',4,7);
+    town.place('econCouncil',7,7);
+
+    // Shared storage and manufacturing
+
+    town.place('farmBarn',11,7);
+    town.place('industryMill',11,1);
+
+    // Starter stock
+
+    industry.add('bread',30);
+    industry.add('milk',15);
+    industry.add('eggs',12);
+    industry.add('clothing',15);
+    industry.add('wheat',35);
+
+    farm.sync();
+    industry.sync();
+    economy.sync();
+
+    selected=null;
+    lastSelected=null;
+
+    $('householdTax').value=10;
+    $('businessTax').value=15;
+
+    notice(
+
+        'Starter town ready. Advance one day to collect income.'
+
+    );
+
+    update();
+
+}
+
+// ==========================================
+// CONSTRUCTION AND IMPORT MENUS
+// ==========================================
+
+for (const [id,d] of Object.entries(BUILDINGS)) {
+
+    option(
+
+        $('buildingType'),
+
+        id,
+
+        d.icon+' '+d.name
+
+    );
+
+}
+
+for (
+
+    const [id,d] of Object.entries(PRODUCTS)
+
+        .sort((a,b)=>a[1].name.localeCompare(b[1].name))
+
+) {
+
+    option($('product'),id,d.icon+' '+d.name);
+
+}
+
+function updateMenus() {
+
+    const b=BUILDINGS[$('buildingType').value];
+
+    $('buildingInfo').textContent=
+
+        money(b.cost)+' · '+
+
+        b.width+' × '+b.height+' tiles';
+
+    const product=$('product').value;
+
+    const n=Number($('quantity').value);
+
+    const valid=
+
+        Number.isSafeInteger(n) && n>0 && n<=10000;
+
+    const price=industry.importPrice(product);
+
+    const cost=valid ? price*n : 0;
+
+    $('importInfo').textContent=valid
+
+        ? money(price)+' each · Total '+money(cost)
+
+        : 'Enter a valid quantity';
+
+    $('import').disabled=
+
+        !valid ||
+
+        cost>town.cash ||
+
+        n>farm.freeSpace();
+
+}
+
+$('buildingType').onchange=updateMenus;
+
+$('product').onchange=updateMenus;
+
+$('quantity').oninput=updateMenus;
+
+$('build').onclick=()=>{
+
+    construction.select($('buildingType').value);
+
+    selected=null;
+
+    notice('Choose a construction location.');
+
+    update();
+
+};
+
+$('import').onclick=()=>{
+
+    show(
+
+        economy.importGoods(
+
+            $('product').value,
+
+            Number($('quantity').value)
+
+        ),
+
+        'Imported goods added to storage.'
+
+    );
+
+};
+
+// ==========================================
+// TAX CONTROLS
+// ==========================================
+
+function changeTaxes() {
+
+    const result=economy.setTaxes(
+
+        Number($('householdTax').value),
+
+        Number($('businessTax').value)
+
+    );
+
+    show(result,'Tax rates updated.');
+
+}
+
+$('householdTax').oninput=changeTaxes;
+
+$('businessTax').oninput=changeTaxes;
+
+$('payBills').onclick=()=>{
+
+    const amount=economy.payBills();
+
+    notice('Paid '+money(amount)+' in outstanding bills.');
+
+    update();
+
+};
+
+// ==========================================
+// MAP CREATION
+// ==========================================
+
+for (let y=0;y<HEIGHT;y++) {
+
+    for (let x=0;x<WIDTH;x++) {
+
+        const button=document.createElement('button');
+
+        button.className='tile';
+
+        button.setAttribute(
+
+            'aria-label',
+
+            'Tile '+x+', '+y
+
+        );
+
+        button.onclick=()=>{
+
+            if (construction.pending) {
+
+                construction.target(x,y);
+
+                notice('Adjust or confirm placement.');
+
+            } else {
+
+                selected=
+
+                    construction.buildingAt(x,y)?.id
+
+                    ?? null;
+
+                notice(
+
+                    selected===null
+
+                        ? 'Select a building.'
+
+                        : 'Building selected.'
+
+                );
+
+            }
+
+            update();
+
+        };
+
+        tiles.push({x,y,button});
+
+        $('map').appendChild(button);
+
+    }
+
+}
+
+// ==========================================
+// MAP RENDERING
+// ==========================================
+
+function renderMap() {
+
+    const p=construction.pending;
+
+    const f=construction.footprint();
+
+    const check=construction.preview();
+
+    for (const {x,y,button} of tiles) {
+
+        button.className='tile';
+
+        button.textContent='';
+
+        button.title='Empty land';
+
+        const b=construction.buildingAt(x,y);
+
+        if (b) {
+
+            const d=BUILDINGS[b.type];
+
+            button.classList.add(d.kind||'storage');
+
+            button.title=d.name;
+
+            if (x===b.x && y===b.y) {
+
+                button.textContent=d.icon;
+
+            }
+
+            if (b.id===selected) {
+
+                button.classList.add('selected');
+
+            }
+
+        }
+
+        if (
+
+            p && f &&
+
+            f.x!==null && f.y!==null &&
+
+            x>=f.x && y>=f.y &&
+
+            x<f.x+f.width &&
+
+            y<f.y+f.height
+
+        ) {
+
+            button.classList.add(
+
+                check.ok
+
+                    ? 'preview-valid'
+
+                    : 'preview-invalid'
+
+            );
+
+            if (x===f.x && y===f.y) {
+
+                button.textContent=BUILDINGS[p.type].icon;
+
+            }
+
+        }
+
+    }
+
+}
+
+// ==========================================
+// CONSTRUCTION CONTROLS
+// ==========================================
+
+function updatePlacement() {
+
+    const p=construction.pending;
+
+    hide('placement',!p);
+
+    if (!p) return;
+
+    const f=construction.footprint();
+
+    const check=construction.preview();
+
+    $('placementInfo').textContent=
+
+        BUILDINGS[p.type].name+' · '+
+
+        f.width+' × '+f.height+' tiles · '+
+
+        (check.ok ? money(check.cost) : check.reason);
+
+    $('placementInfo').className=
+
+        check.ok?'valid':'invalid';
+
+    $('confirm').disabled=!check.ok;
+
+}
+
+$('rotate').onclick=()=>{
+
+    construction.rotate();
+
+    update();
+
+};
+
+$('cancel').onclick=()=>{
+
+    construction.cancel();
+
+    notice('Construction cancelled.');
+
+    update();
+
+};
+
+$('confirm').onclick=()=>{
+
+    const result=construction.confirm();
+
+    if (result.ok) {
+
+        selected=result.building?.id??null;
+
+        lastSelected=null;
+
+    }
+
+    show(result,'Construction complete.');
+
+};
+
+// ==========================================
+// CONTEXTUAL BUILDING MANAGEMENT
+// ==========================================
+
+function updateDetails() {
+
+    const b=town.buildings.get(selected);
+
+    hide('details',!b || !!construction.pending);
+
+    if (!b || construction.pending) return;
+
+    const d=BUILDINGS[b.type];
+
+    const p=economy.properties.get(b.id);
+
+    $('selectedName').textContent=d.icon+' '+d.name;
+
+    hide('housingControls',d.kind!=='housing');
+
+    hide('retailControls',d.kind!=='retail');
+
+    hide('factoryControls',d.kind!=='factory');
+
+    if (d.kind==='housing') {
+
+        $('selectedInfo').textContent=
+
+            p.occupied+'/'+d.households+' households · '+
+
+            money(d.rent)+' rent per household/day · '+
+
+            'Daily income '+money(p.incomeToday);
+
+        $('occupancy').max=d.households;
+
+        if (lastSelected!==selected) {
+
+            $('occupancy').value=p.occupied;
+
+        }
+
+    } else if (d.kind==='retail') {
+
+        if (lastSelected!==selected) {
+
+            $('shopProduct').replaceChildren();
+
+            for (const id of d.products) {
+
+                option(
+
+                    $('shopProduct'),
+
+                    id,
+
+                    PRODUCTS[id].name
+
+                );
+
+            }
+
+            $('shopProduct').value=p.stockProduct;
+
+        }
+
+        const product=p.stockProduct;
+
+        $('selectedInfo').textContent=
+
+            'Selling '+PRODUCTS[product].name+
+
+            ' · '+industry.amount(product)+' in storage'+
+
+            ' · '+money(economy.retailPrice(product))+
+
+            ' each · '+p.soldToday+' sold today';
+
+    } else if (d.kind==='factory') {
+
+        const f=industry.factories.get(b.id);
+
+        $('selectedInfo').textContent=
+
+            f.status+' · '+f.completed+' batches completed';
+
+        $('toggleMill').textContent=
+
+            f.enabled
+
+                ? 'Pause flour production'
+
+                : 'Start flour production';
+
+    } else if (d.kind==='storage') {
+
+        $('selectedInfo').textContent=
+
+            'Adds '+d.capacity+' units of shared storage';
+
+    } else {
+
+        $('selectedInfo').textContent=
+
+            'Daily upkeep: '+money(d.upkeep||0)+
+
+            ' · Daily town income: '+
+
+            money(p?.incomeToday||0);
+
+    }
+
+    lastSelected=selected;
+
+}
+
+$('applyOccupancy').onclick=()=>{
+
+    show(
+
+        economy.setOccupancy(
+
+            selected,
+
+            Number($('occupancy').value)
+
+        ),
+
+        'Test household occupancy updated.'
+
+    );
+
+};
+
+$('applyStock').onclick=()=>{
+
+    show(
+
+        economy.setStock(
+
+            selected,
+
+            $('shopProduct').value
+
+        ),
+
+        'Shop product updated.'
+
+    );
+
+};
+
+$('toggleMill').onclick=()=>{
+
+    const f=industry.factories.get(selected);
+
+    const result=f.enabled
+
+        ? industry.setRunning(selected,false)
+
+        : industry.configure(selected,'millWheat');
+
+    show(result,'Mill production updated.');
+
+};
+
+// ==========================================
+// SIMULATION CLOCK
+// ==========================================
+
+for (const days of [1,3,7]) {
+
+    $('day'+days).onclick=()=>{
+
+        show(
+
+            economy.advance(days),
+
+            days+' economic day(s) completed.'
+
+        );
+
+    };
+
+}
+
+// ==========================================
+// FINANCIAL REPORTS
+// ==========================================
+
+function renderFinance() {
+
+    $('finance').replaceChildren();
+
+    const r=economy.last;
+
+    if (!r) {
+
+        $('finance').textContent=
+
+            'Advance the simulation to generate a statement.';
+
+        return;
+
+    }
+
+    const table=document.createElement('table');
+
+    const items=[
+
+        ['Residential rent',r.rent],
+
+        ['Household taxes',r.householdTax],
+
+        ['Business taxes',r.businessTax],
+
+        ['Retail revenue',r.retail],
+
+        ['Total income',r.income],
+
+        ['Maintenance due',-r.maintenance],
+
+        ['Operating balance',r.operatingNet],
+
+        ['Bills actually paid',-r.paid],
+
+        ['Farm and industry cash change',r.productionNet],
+
+        ['Net daily cash change',r.cashChange]
+
+    ];
+
+    for (const [name,n] of items) {
+
+        const row=document.createElement('tr');
+
+        cell(row,name);
+
+        const value=cell(row,money(n));
+
+        value.className=n<0?'invalid':'valid';
+
+        table.appendChild(row);
+
+    }
+
+    $('finance').appendChild(table);
+
+    $('history').replaceChildren();
+
+    for (const entry of economy.history.slice(0,10)) {
+
+        const row=document.createElement('tr');
+
+        cell(row,entry.day);
+
+        cell(row,money(entry.income));
+
+        cell(row,money(entry.maintenance));
+
+        const c=cell(row,money(entry.cashChange));
+
+        c.className=
+
+            entry.cashChange<0?'invalid':'valid';
+
+        $('history').appendChild(row);
+
+    }
+
+}
+
+// ==========================================
+// INVENTORY AND EXPORTS
+// ==========================================
+
+function renderInventory() {
+
+    $('inventory').replaceChildren();
+
+    for (const [id,n] of farm.stock) {
+
+        const d=PRODUCTS[id];
+
+        const row=document.createElement('tr');
+
+        cell(row,d.icon+' '+d.name);
+
+        cell(row,n);
+
+        cell(row,money(d.price));
+
+        const actions=cell(row,'');
+
+        for (const count of new Set([1,n])) {
+
+            const button=document.createElement('button');
+
+            button.textContent=
+
+                count===n?'Sell all':'Sell 1';
+
+            button.onclick=()=>{
+
+                show(
+
+                    economy.exportGoods(id,count),
+
+                    'Goods exported successfully.'
+
+                );
+
+            };
+
+            actions.appendChild(button);
+
+        }
+
+        $('inventory').appendChild(row);
+
+    }
+
+    if (!farm.stock.size) {
+
+        const row=document.createElement('tr');
+
+        const td=cell(row,'Storage is empty');
+
+        td.colSpan=4;
+
+        $('inventory').appendChild(row);
+
+    }
+
+}
+
+// ==========================================
+// OPTIONAL TRADE CONTRACTS
+// ==========================================
+
+function renderContracts() {
+
+    $('contracts').replaceChildren();
+
+    $('contractRevenue').textContent=
+
+        'Contract revenue: '+money(economy.contractRevenue);
+
+    for (const [id,d] of Object.entries(CONTRACTS)) {
+
+        const c=economy.contracts.get(id);
+
+        const available=industry.amount(d.product);
+
+        const box=document.createElement('div');
+
+        box.className='contract';
+
+        const title=document.createElement('strong');
+
+        title.textContent=d.name;
+
+        box.appendChild(title);
+
+        const info=document.createElement('div');
+
+        info.className='muted';
+
+        info.textContent=
+
+            'Deliver '+d.quantity+' '+PRODUCTS[d.product].name+
+
+            ' · Reward '+money(d.reward)+
+
+            ' · '+d.days+' days';
+
+        box.appendChild(info);
+
+        const status=document.createElement('div');
+
+        status.className=
+
+            c.status==='completed'?'valid':'muted';
+
+        status.textContent=
+
+            'Status: '+c.status+
+
+            ' · Stock '+available+'/'+d.quantity+
+
+            (c.deadline?' · Due day '+c.deadline:'');
+
+        box.appendChild(status);
+
+        function addButton(label,action,disabled=false) {
+
+            const button=document.createElement('button');
+
+            button.textContent=label;
+
+            button.disabled=disabled;
+
+            button.onclick=action;
+
+            box.appendChild(button);
+
+        }
+
+        if (c.status==='available') {
+
+            addButton('Accept contract',()=>{
+
+                show(
+
+                    economy.acceptContract(id),
+
+                    'Optional trade contract accepted.'
+
+                );
+
+            });
+
+        } else if (c.status==='active') {
+
+            addButton('Deliver goods',()=>{
+
+                show(
+
+                    economy.deliverContract(id),
+
+                    'Contract completed. Reward received.'
+
+                );
+
+            },available<d.quantity);
+
+            addButton('Cancel contract',()=>{
+
+                show(
+
+                    economy.cancelContract(id),
+
+                    'Contract cancelled without penalty.'
+
+                );
+
+            });
+
+        }
+
+        $('contracts').appendChild(box);
+
+    }
+
+}
+
+// ==========================================
+// REFRESH COMPLETE WORKSPACE
+// ==========================================
+
+function update() {
+
+    farm.sync();
+
+    industry.sync();
+
+    economy.sync();
+
+    $('day').textContent=farm.day;
+
+    $('cash').textContent=money(town.cash);
+
+    $('households').textContent=economy.households();
+
+    const balance=economy.last?.operatingNet||0;
+
+    $('balance').textContent=money(balance);
+
+    $('balance').className=
+
+        balance<0?'invalid':'valid';
+
+    $('arrears').textContent=money(economy.arrears);
+
+    $('arrears').className=
+
+        economy.arrears?'warning':'valid';
+
+    $('payBills').disabled=
+
+        economy.arrears===0 || town.cash<=0;
+
+    $('householdRate').textContent=
+
+        economy.householdTax+'%';
+
+    $('businessRate').textContent=
+
+        economy.businessTax+'%';
+
+    $('storage').textContent=
+
+        farm.used()+'/'+farm.capacity()+' units stored';
+
+    $('message').textContent=message;
+
+    $('message').className=
+
+        messageOK?'valid':'invalid';
+
+    updateMenus();
+
+    updatePlacement();
+
+    updateDetails();
+
+    renderMap();
+
+    renderFinance();
+
+    renderInventory();
+
+    renderContracts();
+
+    $('log').replaceChildren();
+
+    for (const text of farm.messages) {
+
+        const div=document.createElement('div');
+
+        div.textContent=text;
+
+        $('log').appendChild(div);
+
+    }
+
+}
+
+$('reset').onclick=()=>reset(true);
+
+// ==========================================
+// AUTOMATED ECONOMY TESTS
+// ==========================================
+
+let passed=0;
+let failed=0;
+
+function test(name,fn) {
+
+    const row=document.createElement('div');
+
+    row.className='test';
+
+    const label=document.createElement('span');
+
+    label.textContent=name;
+
+    const result=document.createElement('strong');
+
+    try {
+
+        if (!fn()) throw new Error('Check failed');
+
+        result.textContent='PASS';
+
+        result.className='valid';
+
+        passed++;
+
+    } catch(error) {
+
+        result.textContent='FAIL';
+
+        result.className='invalid';
+
+        result.title=error.message;
+
+        failed++;
+
+    }
+
+    row.append(label,result);
+
+    $('tests').appendChild(row);
+
+}
+
+function fixture() {
+
+    const t=new TownEngine({
+
+        width:14,
+        height:10,
+        cash:10000
+
+    });
+
+    const f=new TownFarming(t);
+
+    const i=new TownIndustry(t,f);
+
+    const e=new TownEconomy(t,f,i);
+
+    return {t,f,i,e};
+
+}
+
+test('Residential properties generate rent',()=>{
+
+    const {t,e}=fixture();
+
+    t.place('econCottage',1,1);
+
+    e.advance();
+
+    return e.last.rent===12;
+
+});
+
+test('Empty residential properties earn no rent',()=>{
+
+    const {t,e}=fixture();
+
+    const b=t.place('econCottage',1,1).building;
+
+    e.setOccupancy(b.id,0);
+
+    e.advance();
+
+    return e.last.rent===0 &&
+
+        e.last.householdTax===0;
+
+});
+
+test('Household taxes can be adjusted',()=>{
+
+    const {t,e}=fixture();
+
+    t.place('econCottage',1,1);
+
+    e.setTaxes(20,15);
+
+    e.advance();
+
+    return e.last.householdTax===8;
+
+});
+
+test('Invalid tax rates are rejected',()=>{
+
+    const {e}=fixture();
+
+    return !e.setTaxes(31,15).ok &&
+
+        e.householdTax===10;
+
+});
+
+test('Private businesses generate tax income',()=>{
+
+    const {t,e}=fixture();
+
+    t.place('econApartments',1,1);
+
+    t.place('econCafe',5,1);
+
+    e.advance();
+
+    return e.last.businessTax===9;
+
+});
+
+test('Retail sales consume shared inventory',()=>{
+
+    const {t,i,e}=fixture();
+
+    t.place('econApartments',1,1);
+
+    t.place('econGrocer',5,1);
+
+    i.add('bread',10);
+
+    e.advance();
+
+    return i.amount('bread')===2 &&
+
+        e.last.retail===256;
+
+});
+
+test('Retail without customers generates no sales',()=>{
+
+    const {t,i,e}=fixture();
+
+    t.place('econGrocer',1,1);
+
+    i.add('bread',10);
+
+    e.advance();
+
+    return e.last.retail===0 &&
+
+        i.amount('bread')===10;
+
+});
+
+test('Shops reject incompatible products',()=>{
+
+    const {t,e}=fixture();
+
+    const b=t.place('econGrocer',1,1).building;
+
+    return !e.setStock(b.id,'steel').ok;
+
+});
+
+test('Utility maintenance is deducted',()=>{
+
+    const {t,e}=fixture();
+
+    t.place('econSolar',1,1);
+
+    const cash=t.cash;
+
+    e.advance();
+
+    return e.last.maintenance===18 &&
+
+        t.cash===cash-18;
+
+});
+
+test('Unpaid maintenance becomes outstanding bills',()=>{
+
+    const {t,e}=fixture();
+
+    t.place('econSolar',1,1);
+
+    t.cash=5;
+
+    e.advance();
+
+    return t.cash===0 && e.arrears===13;
+
+});
+
+test('Outstanding bills can be repaid',()=>{
+
+    const {t,e}=fixture();
+
+    t.place('econSolar',1,1);
+
+    t.cash=0;
+
+    e.advance();
+
+    t.cash=30;
+
+    return e.payBills()===18 &&
+
+        e.arrears===0 && t.cash===12;
+
+});
+
+test('Trade contracts require acceptance',()=>{
+
+    const {i,e}=fixture();
+
+    i.add('wheat',30);
+
+    return !e.deliverContract('wheatOrder').ok;
+
+});
+
+test('Completed contracts consume goods and pay rewards',()=>{
+
+    const {t,i,e}=fixture();
+
+    i.add('wheat',30);
+
+    e.acceptContract('wheatOrder');
+
+    const cash=t.cash;
+
+    return e.deliverContract('wheatOrder').ok &&
+
+        t.cash===cash+260 &&
+
+        i.amount('wheat')===0;
+
+});
+
+test('Contracts cannot pay rewards twice',()=>{
+
+    const {i,e}=fixture();
+
+    i.add('wheat',60);
+
+    e.acceptContract('wheatOrder');
+
+    e.deliverContract('wheatOrder');
+
+    return !e.deliverContract('wheatOrder').ok;
+
+});
+
+test('Missed contract deadlines incur no penalty',()=>{
+
+    const {t,e}=fixture();
+
+    const cash=t.cash;
+
+    e.acceptContract('wheatOrder');
+
+    e.advance(8);
+
+    return e.contracts.get('wheatOrder').status==='expired' &&
+
+        t.cash===cash;
+
+});
+
+test('Farming, manufacturing and economy share time',()=>{
+
+    const {t,f,i,e}=fixture();
+
+    const field=t.place('farmField',1,1).building;
+
+    const mill=t.place('industryMill',5,1).building;
+
+    f.plant(field.id,'wheat');
+
+    i.add('wheat',4);
+
+    i.configure(mill.id,'millWheat');
+
+    e.advance(3);
+
+    return f.day===4 &&
+
+        f.stage(field.id)==='Ready to harvest' &&
+
+        i.amount('flour')===5 &&
+
+        e.history.length===3;
+
+});
+
+test('Buildings require cash, not manufactured goods',()=>{
+
+    const {t,i}=fixture();
+
+    return t.place('econSchool',1,1).ok &&
+
+        i.amount('steel')===0 &&
+
+        i.amount('bricks')===0;
+
+});
+
+$('summary').textContent=
+
+    passed+' tests passed · '+
+
+    failed+' tests failed';
+
+$('summary').className=
+
+    failed?'invalid':'valid';
+
+// ==========================================
+// INITIALISE
+// ==========================================
+
+reset();
+
+})();
+
+</script>
+
+</body>
+</html>
