@@ -1,0 +1,2058 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width,initial-scale=1">
+
+<title>Town Builder V1.0 — Industry</title>
+
+<style>
+
+* {box-sizing:border-box}
+
+body {
+    margin:0;
+    background:#101e18;
+    color:#edf4e9;
+    font-family:Arial,sans-serif;
+}
+
+header {
+    padding:18px;
+    background:#1b3024;
+    border-bottom:1px solid #405747;
+}
+
+h1 {
+    font-size:22px;
+    color:#c2e3a4;
+    margin:0 0 6px;
+}
+
+h2 {
+    font-size:16px;
+    color:#c6dfb7;
+    margin:0 0 12px;
+}
+
+h3 {
+    font-size:15px;
+    margin:12px 0;
+}
+
+.muted {
+    color:#abc0ac;
+    font-size:13px;
+    line-height:1.6;
+}
+
+.workspace {
+    display:grid;
+    grid-template-columns:260px minmax(0,1fr);
+    gap:12px;
+    padding:12px;
+}
+
+.panel {
+    min-width:0;
+    padding:14px;
+    background:#1b2e24;
+    border:1px solid #405747;
+    border-radius:12px;
+}
+
+.stats,.toolbar {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:10px 0;
+}
+
+.stat {
+    padding:10px 14px;
+    background:#294335;
+    border:1px solid #45614b;
+    border-radius:8px;
+    font-size:14px;
+}
+
+button,select,input {
+    font:inherit;
+    padding:10px;
+    color:#eff6e9;
+    background:#304b38;
+    border:1px solid #4c694e;
+    border-radius:8px;
+}
+
+button {cursor:pointer}
+
+button:hover {filter:brightness(1.15)}
+
+button:disabled {
+    opacity:.4;
+    cursor:default;
+}
+
+select,input,.wide {
+    width:100%;
+}
+
+.wide {
+    margin:6px 0;
+}
+
+label {
+    display:block;
+    font-size:12px;
+    color:#b9ceb9;
+    margin:12px 0 6px;
+}
+
+.confirm {background:#488f50}
+.cancel {background:#934a43}
+.rotate {background:#365b83}
+
+.valid {color:#b2e99f}
+.invalid {color:#ffaaa0}
+.warning {color:#e9c775}
+
+.hidden {display:none!important}
+
+.section {
+    background:#263e2e;
+    padding:12px;
+    border-radius:9px;
+    margin:10px 0;
+}
+
+.actions {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin:8px 0;
+}
+
+.map {
+    display:grid;
+    grid-template-columns:repeat(16,minmax(0,1fr));
+    gap:1px;
+    padding:4px;
+    background:#42583c;
+    border-radius:8px;
+}
+
+.tile {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    aspect-ratio:1;
+    width:100%;
+    padding:0;
+    border:0;
+    border-radius:1px;
+    background:#91b775;
+    color:#263b26;
+    font-size:clamp(9px,2.2vw,26px);
+    overflow:hidden;
+    touch-action:manipulation;
+}
+
+.tile:nth-child(odd) {
+    background:#99bf7c;
+}
+
+.tile.field {
+    background:#997347;
+}
+
+.tile.growing {
+    background:#77994b;
+}
+
+.tile.ready {
+    background:#dfbd54;
+}
+
+.tile.storage {
+    background:#b7a487;
+}
+
+.tile.factory {
+    background:#a3aaa7;
+}
+
+.tile.running {
+    background:#8ac18a;
+}
+
+.tile.waiting {
+    background:#dfbc73;
+}
+
+.tile.selected {
+    box-shadow:inset 0 0 0 3px #fff2ac;
+}
+
+.tile.preview-valid {
+    box-shadow:inset 0 0 0 3px #d6ff9a;
+}
+
+.tile.preview-invalid {
+    box-shadow:inset 0 0 0 3px #ff7467;
+}
+
+.recipe-flow {
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    align-items:center;
+    gap:10px;
+    background:#192e22;
+    padding:12px;
+    border-radius:8px;
+    margin:10px 0;
+}
+
+.recipe-flow div {
+    font-size:13px;
+    line-height:1.8;
+}
+
+.progress {
+    height:10px;
+    border-radius:8px;
+    background:#14271e;
+    overflow:hidden;
+    margin:8px 0;
+}
+
+.fill {
+    height:100%;
+    width:0;
+    background:#87bd79;
+}
+
+.bottom {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    padding:0 12px 12px;
+}
+
+.table-wrap {overflow-x:auto}
+
+table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+}
+
+th,td {
+    text-align:left;
+    padding:9px 6px;
+    border-bottom:1px solid #405747;
+}
+
+td button {
+    font-size:12px;
+    padding:6px;
+    margin:2px;
+}
+
+.log {
+    max-height:300px;
+    overflow:auto;
+    font-size:13px;
+    line-height:1.8;
+    color:#b9cbb6;
+}
+
+.test-panel {margin:0 12px 12px}
+
+.test {
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:9px 0;
+    border-bottom:1px solid #405747;
+    font-size:13px;
+}
+
+a {color:#b9e0a6}
+
+footer {
+    padding:16px;
+    font-size:13px;
+}
+
+@media(max-width:720px) {
+
+    .workspace,.bottom {
+        grid-template-columns:1fr;
+    }
+
+    .actions button {
+        padding:10px 4px;
+        font-size:12px;
+    }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+
+    <h1>Town Builder V1.0</h1>
+
+    <div class="muted">
+
+        Development Workspace — Manufacturing & Production
+
+    </div>
+
+    <div class="stats">
+
+        <div class="stat">
+            Day: <strong id="day"></strong>
+        </div>
+
+        <div class="stat">
+            Cash: <strong id="cash"></strong>
+        </div>
+
+        <div class="stat">
+            Storage: <strong id="storage"></strong>
+        </div>
+
+        <div class="stat">
+            Sales: <strong id="revenue"></strong>
+        </div>
+
+        <div class="stat">
+            Batches completed: <strong id="completed"></strong>
+        </div>
+
+    </div>
+
+</header>
+
+<div class="workspace">
+
+    <aside class="panel">
+
+        <h2>Industrial construction</h2>
+
+        <label for="buildingType">
+            Choose a building
+        </label>
+
+        <select id="buildingType"></select>
+
+        <p id="buildingInfo" class="muted"></p>
+
+        <button id="build" class="wide">
+
+            Select building
+
+        </button>
+
+        <h3>Import goods</h3>
+
+        <label for="importProduct">
+            Choose product
+        </label>
+
+        <select id="importProduct"></select>
+
+        <label for="importQuantity">
+            Quantity
+        </label>
+
+        <input id="importQuantity"
+               type="number"
+               min="1"
+               max="10000"
+               value="10">
+
+        <p id="importInfo" class="muted"></p>
+
+        <button id="import" class="wide confirm">
+
+            Purchase goods
+
+        </button>
+
+        <h3>Development controls</h3>
+
+        <button id="reset" class="wide cancel">
+
+            Reset test town
+
+        </button>
+
+        <p class="muted">
+
+            This test combines farming and industry.
+
+            Finished goods can be sold directly or
+            used in another factory.
+
+        </p>
+
+    </aside>
+
+    <section class="panel">
+
+        <h2>Production management</h2>
+
+        <div class="toolbar">
+
+            <button id="day1" class="confirm">
+
+                ☀ Advance 1 day
+
+            </button>
+
+            <button id="day3">
+
+                Advance 3 days
+
+            </button>
+
+            <button id="day7">
+
+                Advance 7 days
+
+            </button>
+
+        </div>
+
+        <p id="message" class="valid"></p>
+
+        <div id="placement" class="section hidden">
+
+            <div id="placementInfo"></div>
+
+            <div class="actions">
+
+                <button id="cancel" class="cancel">
+
+                    ✕ Cancel
+
+                </button>
+
+                <button id="rotate" class="rotate">
+
+                    ↻ Rotate
+
+                </button>
+
+                <button id="confirm" class="confirm">
+
+                    ✓ Build
+
+                </button>
+
+            </div>
+
+        </div>
+
+        <div id="details" class="section hidden">
+
+            <h3 id="selectedName"></h3>
+
+            <p id="selectedStatus" class="muted"></p>
+
+            <div id="factoryControls" class="hidden">
+
+                <label for="recipe">
+
+                    Choose production recipe
+
+                </label>
+
+                <select id="recipe"></select>
+
+                <div class="recipe-flow">
+
+                    <div id="inputs"></div>
+
+                    <strong>→</strong>
+
+                    <div id="outputs"></div>
+
+                </div>
+
+                <p id="recipeInfo" class="muted"></p>
+
+                <div class="progress">
+
+                    <div id="productionBar"
+                         class="fill"></div>
+
+                </div>
+
+                <div class="toolbar">
+
+                    <button id="start" class="confirm">
+
+                        Start production
+
+                    </button>
+
+                    <button id="pause">
+
+                        Pause production
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div id="fieldControls" class="hidden">
+
+                <label for="crop">Choose crop</label>
+
+                <select id="crop"></select>
+
+                <div class="toolbar">
+
+                    <button id="plant" class="confirm">
+
+                        Plant crop
+
+                    </button>
+
+                    <button id="harvest" class="confirm">
+
+                        Harvest crop
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div id="map" class="map"></div>
+
+        <p class="muted">
+
+            Click a factory to choose its production.
+            Click the starter field to grow crops.
+            Green factories are active; amber factories
+            are waiting for supplies or storage.
+
+        </p>
+
+    </section>
+
+</div>
+
+<div class="bottom">
+
+    <section class="panel">
+
+        <h2>Shared inventory</h2>
+
+        <p id="capacityInfo" class="muted"></p>
+
+        <div class="progress">
+
+            <div id="storageBar" class="fill"></div>
+
+        </div>
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Product</th>
+
+                        <th>Stock</th>
+
+                        <th>Price</th>
+
+                        <th>Sell</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="inventory"></tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+    <section class="panel">
+
+        <h2>Factory status</h2>
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Factory</th>
+
+                        <th>Recipe</th>
+
+                        <th>Status</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="factoryReport"></tbody>
+
+            </table>
+
+        </div>
+
+        <h2 style="margin-top:20px">Activity log</h2>
+
+        <div id="log" class="log"></div>
+
+    </section>
+
+</div>
+
+<section class="panel test-panel">
+
+    <h2>Manufacturing engine tests</h2>
+
+    <div id="tests"></div>
+
+    <h3 id="summary"></h3>
+
+</section>
+
+<footer>
+
+    <a href="./v1-farming.html">Farming</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-utilities.html">Utilities</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-transport.html">Transport</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./v1-construction.html">Construction</a>
+
+    &nbsp; | &nbsp;
+
+    <a href="./index.html">Existing game</a>
+
+</footer>
+
+<script src="./js/engine.js"></script>
+<script src="./js/construction.js"></script>
+<script src="./js/farming.js"></script>
+<script src="./js/industry.js"></script>
+
+<script>
+
+(() => {
+
+'use strict';
+
+const $=id=>document.getElementById(id);
+
+const PRODUCTS=TownIndustryProducts;
+
+const FACTORIES=TownIndustryBuildings;
+
+const RECIPES=TownIndustryRecipes;
+
+const CROPS=TownFarmCrops;
+
+const BUILDINGS={
+
+    ...FACTORIES,
+
+    farmField:{
+
+        ...TownFarmBuildings.farmField,
+
+        icon:'🌱'
+
+    },
+
+    largeField:{
+
+        ...TownFarmBuildings.largeField,
+
+        icon:'🌱'
+
+    },
+
+    farmBarn:{
+
+        ...TownFarmBuildings.farmBarn,
+
+        icon:'🏚️'
+
+    },
+
+    farmWarehouse:{
+
+        ...TownFarmBuildings.farmWarehouse,
+
+        icon:'📦'
+
+    }
+
+};
+
+let town,farm,industry,construction;
+
+let selected=null;
+
+let lastSelected=null;
+
+let message='';
+
+let messageOK=true;
+
+const tiles=[];
+
+const WIDTH=16;
+const HEIGHT=12;
+
+// ==========================================
+// GENERAL HELPERS
+// ==========================================
+
+function option(select,value,label) {
+
+    const o=document.createElement('option');
+
+    o.value=value;
+    o.textContent=label;
+
+    select.appendChild(o);
+
+}
+
+function money(n) {
+
+    return '£'+n.toLocaleString('en-GB');
+
+}
+
+function setMessage(text,ok=true) {
+
+    message=text;
+    messageOK=ok;
+
+}
+
+function show(result,success) {
+
+    setMessage(
+
+        result.ok ? success : result.reason,
+
+        result.ok
+
+    );
+
+    update();
+
+}
+
+function hide(id,hidden) {
+
+    $(id).classList.toggle('hidden',hidden);
+
+}
+
+// ==========================================
+// STARTER TEST WORLD
+// ==========================================
+
+function reset(ask=false) {
+
+    if (
+
+        ask &&
+
+        !confirm('Reset this industrial test town?')
+
+    ) return;
+
+    town=new TownEngine({
+
+        width:WIDTH,
+
+        height:HEIGHT,
+
+        cash:15000
+
+    });
+
+    farm=new TownFarming(town);
+
+    industry=new TownIndustry(town,farm);
+
+    construction=new TownConstruction(town);
+
+    town.place('farmField',1,2);
+
+    town.place('industryMill',5,2);
+
+    town.place('industryBakery',9,2);
+
+    town.place('industryDairy',5,6);
+
+    town.place('farmBarn',1,6);
+
+    farm.sync();
+
+    industry.sync();
+
+    // Starter supplies for immediate testing.
+
+    industry.add('wheat',24);
+    industry.add('milk',12);
+    industry.add('eggs',8);
+    industry.add('timber',12);
+
+    selected=null;
+    lastSelected=null;
+
+    setMessage(
+
+        'Select the flour mill to start production.'
+
+    );
+
+    update();
+
+}
+
+// ==========================================
+// CONSTRUCTION AND PRODUCT MENUS
+// ==========================================
+
+for (const [id,d] of Object.entries(BUILDINGS)) {
+
+    option(
+
+        $('buildingType'),
+
+        id,
+
+        d.icon+' '+d.name
+
+    );
+
+}
+
+for (
+
+    const [id,d] of Object.entries(PRODUCTS)
+
+        .sort((a,b)=>a[1].name.localeCompare(b[1].name))
+
+) {
+
+    option(
+
+        $('importProduct'),
+
+        id,
+
+        d.icon+' '+d.name
+
+    );
+
+}
+
+for (const [id,c] of Object.entries(CROPS)) {
+
+    option($('crop'),id,c.icon+' '+c.name);
+
+}
+
+function updateMenus() {
+
+    const b=BUILDINGS[$('buildingType').value];
+
+    $('buildingInfo').textContent=
+
+        money(b.cost)+' · '+
+
+        b.width+' × '+b.height+' tiles';
+
+    const product=$('importProduct').value;
+
+    const quantity=Number($('importQuantity').value);
+
+    const valid=
+
+        Number.isSafeInteger(quantity) &&
+
+        quantity>0 && quantity<=10000;
+
+    const cost=valid
+
+        ? industry.importPrice(product)*quantity
+
+        : 0;
+
+    $('importInfo').textContent=valid
+
+        ? 'Import price: '+
+
+          money(industry.importPrice(product))+
+
+          ' per unit · Total: '+money(cost)
+
+        : 'Enter a valid quantity';
+
+    $('import').disabled=
+
+        !valid ||
+
+        cost>town.cash ||
+
+        quantity>farm.freeSpace();
+
+}
+
+$('buildingType').onchange=updateMenus;
+
+$('importProduct').onchange=updateMenus;
+
+$('importQuantity').oninput=updateMenus;
+
+$('build').onclick=()=>{
+
+    construction.select($('buildingType').value);
+
+    selected=null;
+
+    setMessage('Choose a construction location.');
+
+    update();
+
+};
+
+$('import').onclick=()=>{
+
+    const result=industry.buy(
+
+        $('importProduct').value,
+
+        Number($('importQuantity').value)
+
+    );
+
+    show(result,'Goods transferred to storage.');
+
+};
+
+// ==========================================
+// MAP CREATION
+// ==========================================
+
+for (let y=0;y<HEIGHT;y++) {
+
+    for (let x=0;x<WIDTH;x++) {
+
+        const button=document.createElement('button');
+
+        button.className='tile';
+
+        button.setAttribute(
+
+            'aria-label',
+
+            'Tile '+x+', '+y
+
+        );
+
+        button.onclick=()=>{
+
+            if (construction.pending) {
+
+                construction.target(x,y);
+
+                setMessage('Adjust or confirm placement.');
+
+            } else {
+
+                selected=
+
+                    construction.buildingAt(x,y)?.id
+
+                    ?? null;
+
+                setMessage(
+
+                    selected===null
+
+                        ? 'Select a factory or field.'
+
+                        : 'Building selected.'
+
+                );
+
+            }
+
+            update();
+
+        };
+
+        tiles.push({x,y,button});
+
+        $('map').appendChild(button);
+
+    }
+
+}
+
+// ==========================================
+// MAP RENDERING
+// ==========================================
+
+function renderMap() {
+
+    const pending=construction.pending;
+
+    const footprint=construction.footprint();
+
+    const check=construction.preview();
+
+    for (const {x,y,button} of tiles) {
+
+        button.className='tile';
+
+        button.textContent='';
+
+        button.title='Empty land';
+
+        const b=construction.buildingAt(x,y);
+
+        if (b) {
+
+            const d=BUILDINGS[b.type];
+
+            const first=x===b.x && y===b.y;
+
+            const f=industry.factories.get(b.id);
+
+            button.title=d.name;
+
+            if (f) {
+
+                button.classList.add('factory');
+
+                if (f.enabled) {
+
+                    button.classList.add(
+
+                        industry.check(f.recipe).ok
+
+                            ? 'running'
+
+                            : 'waiting'
+
+                    );
+
+                }
+
+                if (first) button.textContent=d.icon;
+
+                button.title+=' — '+f.status;
+
+            } else if (d.kind==='field') {
+
+                button.classList.add('field');
+
+                const field=farm.fields.get(b.id);
+
+                if (field?.crop) {
+
+                    const ready=
+
+                        farm.stage(b.id)==='Ready to harvest';
+
+                    button.classList.add(
+
+                        ready ? 'ready' : 'growing'
+
+                    );
+
+                    button.textContent=ready
+
+                        ? CROPS[field.crop].icon
+
+                        : '🌱';
+
+                }
+
+            } else {
+
+                button.classList.add('storage');
+
+                if (first) button.textContent=d.icon;
+
+            }
+
+            if (b.id===selected) {
+
+                button.classList.add('selected');
+
+            }
+
+        }
+
+        if (
+
+            pending && footprint &&
+
+            footprint.x!==null &&
+
+            footprint.y!==null &&
+
+            x>=footprint.x &&
+
+            y>=footprint.y &&
+
+            x<footprint.x+footprint.width &&
+
+            y<footprint.y+footprint.height
+
+        ) {
+
+            button.classList.add(
+
+                check.ok
+
+                    ? 'preview-valid'
+
+                    : 'preview-invalid'
+
+            );
+
+            if (x===footprint.x && y===footprint.y) {
+
+                button.textContent=
+
+                    BUILDINGS[pending.type].icon;
+
+            }
+
+        }
+
+    }
+
+}
+
+// ==========================================
+// CONSTRUCTION CONTROLS
+// ==========================================
+
+function updatePlacement() {
+
+    const p=construction.pending;
+
+    hide('placement',!p);
+
+    if (!p) return;
+
+    const f=construction.footprint();
+
+    const check=construction.preview();
+
+    $('placementInfo').textContent=
+
+        BUILDINGS[p.type].name+' · '+
+
+        f.width+' × '+f.height+' tiles · '+
+
+        (
+
+            check.ok
+
+                ? money(check.cost)
+
+                : check.reason
+
+        );
+
+    $('placementInfo').className=
+
+        check.ok ? 'valid' : 'invalid';
+
+    $('confirm').disabled=!check.ok;
+
+}
+
+$('rotate').onclick=()=>{
+
+    construction.rotate();
+
+    update();
+
+};
+
+$('cancel').onclick=()=>{
+
+    construction.cancel();
+
+    setMessage('Construction cancelled.');
+
+    update();
+
+};
+
+$('confirm').onclick=()=>{
+
+    const result=construction.confirm();
+
+    if (result.ok) {
+
+        selected=result.building?.id??null;
+
+        lastSelected=null;
+
+        farm.sync();
+
+        industry.sync();
+
+    }
+
+    show(result,'Building constructed.');
+
+};
+
+// ==========================================
+// FACTORY MANAGEMENT
+// ==========================================
+
+function updateRecipeInfo() {
+
+    const r=RECIPES[$('recipe').value];
+
+    if (!r) return;
+
+    const f=industry.factories.get(selected);
+
+    $('inputs').textContent=
+
+        'Requires: '+
+
+        Object.entries(r.inputs).map(([id,n])=>
+
+            n+' '+PRODUCTS[id].name+
+
+            ' (have '+industry.amount(id)+')'
+
+        ).join(' · ');
+
+    $('outputs').textContent=
+
+        'Produces: '+
+
+        Object.entries(r.outputs).map(([id,n])=>
+
+            n+' '+PRODUCTS[id].name
+
+        ).join(' · ');
+
+    const check=industry.check(r.id);
+
+    $('recipeInfo').textContent=
+
+        r.days+' day(s) per batch · '+
+
+        money(r.cost)+' operating cost · '+
+
+        (check.ok ? 'Supplies available' : check.reason);
+
+    $('recipeInfo').className=
+
+        check.ok ? 'valid' : 'warning';
+
+    $('productionBar').style.width=
+
+        f?.recipe===r.id
+
+            ? Math.min(100,f.progress/r.days*100)+'%'
+
+            : '0%';
+
+    $('pause').disabled=!f?.enabled;
+
+    $('start').textContent=
+
+        f?.recipe===r.id && !f.enabled
+
+            ? 'Resume production'
+
+            : 'Start production';
+
+}
+
+function updateDetails() {
+
+    const b=town.buildings.get(selected);
+
+    hide('details',!b || !!construction.pending);
+
+    if (!b || construction.pending) return;
+
+    const d=BUILDINGS[b.type];
+
+    const f=industry.factories.get(b.id);
+
+    $('selectedName').textContent=d.icon+' '+d.name;
+
+    hide('factoryControls',!f);
+
+    hide('fieldControls',d.kind!=='field');
+
+    if (f) {
+
+        if (lastSelected!==selected) {
+
+            $('recipe').replaceChildren();
+
+            for (const r of industry.recipesFor(b.id)) {
+
+                option($('recipe'),r.id,r.name);
+
+            }
+
+            if (f.recipe) {
+
+                $('recipe').value=f.recipe;
+
+            }
+
+        }
+
+        $('selectedStatus').textContent=
+
+            f.status+' · '+f.completed+
+
+            ' completed batches';
+
+        updateRecipeInfo();
+
+    } else if (d.kind==='field') {
+
+        const field=farm.fields.get(b.id);
+
+        $('selectedStatus').textContent=
+
+            field.crop
+
+                ? CROPS[field.crop].name+
+
+                  ' · '+farm.stage(b.id)
+
+                : 'Empty field — choose a crop';
+
+        if (field.crop) {
+
+            $('crop').value=field.crop;
+
+        }
+
+        $('crop').disabled=!!field.crop;
+
+        $('plant').disabled=!!field.crop;
+
+        $('harvest').disabled=
+
+            farm.stage(b.id)!=='Ready to harvest';
+
+    } else {
+
+        $('selectedStatus').textContent=
+
+            'Shared storage capacity: '+d.capacity;
+
+    }
+
+    lastSelected=selected;
+
+}
+
+$('recipe').onchange=updateRecipeInfo;
+
+$('start').onclick=()=>{
+
+    const f=industry.factories.get(selected);
+
+    const recipe=$('recipe').value;
+
+    if (
+
+        f?.progress>0 &&
+
+        f.recipe!==recipe &&
+
+        !confirm('Change recipe and reset batch progress?')
+
+    ) return;
+
+    show(
+
+        industry.configure(selected,recipe),
+
+        'Production scheduled.'
+
+    );
+
+};
+
+$('pause').onclick=()=>{
+
+    show(
+
+        industry.setRunning(selected,false),
+
+        'Production paused.'
+
+    );
+
+};
+
+// ==========================================
+// SHARED FARMING CONTROLS
+// ==========================================
+
+$('plant').onclick=()=>{
+
+    show(
+
+        farm.plant(selected,$('crop').value),
+
+        'Crop planted.'
+
+    );
+
+};
+
+$('harvest').onclick=()=>{
+
+    show(
+
+        farm.harvest(selected),
+
+        'Harvest transferred to shared storage.'
+
+    );
+
+};
+
+// ==========================================
+// SHARED CLOCK
+// ==========================================
+
+for (const days of [1,3,7]) {
+
+    $('day'+days).onclick=()=>{
+
+        show(
+
+            industry.advance(days),
+
+            days+' production day(s) completed.'
+
+        );
+
+    };
+
+}
+
+// ==========================================
+// STOCK MANAGEMENT
+// ==========================================
+
+function cell(row,text) {
+
+    const td=document.createElement('td');
+
+    td.textContent=text;
+
+    row.appendChild(td);
+
+    return td;
+
+}
+
+function renderInventory() {
+
+    $('inventory').replaceChildren();
+
+    for (const [id,quantity] of farm.stock) {
+
+        const d=PRODUCTS[id];
+
+        const row=document.createElement('tr');
+
+        cell(row,d.icon+' '+d.name);
+
+        cell(row,quantity);
+
+        cell(row,money(d.price));
+
+        const actions=cell(row,'');
+
+        for (const amount of new Set([1,quantity])) {
+
+            const button=document.createElement('button');
+
+            button.textContent=
+
+                amount===quantity
+
+                    ? 'Sell all'
+
+                    : 'Sell 1';
+
+            button.onclick=()=>{
+
+                const result=industry.sell(id,amount);
+
+                show(
+
+                    result,
+
+                    'Sale completed for '+
+
+                    money(result.income||0)+'.'
+
+                );
+
+            };
+
+            actions.appendChild(button);
+
+        }
+
+        $('inventory').appendChild(row);
+
+    }
+
+    if (!farm.stock.size) {
+
+        const row=document.createElement('tr');
+
+        const td=cell(row,'Inventory is empty');
+
+        td.colSpan=4;
+
+        $('inventory').appendChild(row);
+
+    }
+
+}
+
+// ==========================================
+// FACTORY REPORT
+// ==========================================
+
+function renderFactories() {
+
+    $('factoryReport').replaceChildren();
+
+    for (const [id,f] of industry.factories) {
+
+        const b=town.buildings.get(id);
+
+        const d=FACTORIES[b.type];
+
+        const row=document.createElement('tr');
+
+        const name=cell(row,d.icon+' '+d.name);
+
+        name.style.cursor='pointer';
+
+        name.onclick=()=>{
+
+            construction.cancel();
+
+            selected=id;
+
+            update();
+
+            $('details').scrollIntoView({
+
+                behavior:'smooth',
+
+                block:'nearest'
+
+            });
+
+        };
+
+        cell(
+
+            row,
+
+            RECIPES[f.recipe]?.name||'Not selected'
+
+        );
+
+        const status=cell(row,f.status);
+
+        status.className=
+
+            !f.enabled
+
+                ? 'muted'
+
+                : industry.check(f.recipe).ok
+
+                    ? 'valid'
+
+                    : 'warning';
+
+        $('factoryReport').appendChild(row);
+
+    }
+
+}
+
+// ==========================================
+// REFRESH WORKSPACE
+// ==========================================
+
+function update() {
+
+    farm.sync();
+
+    industry.sync();
+
+    $('day').textContent=farm.day;
+
+    $('cash').textContent=money(town.cash);
+
+    $('storage').textContent=
+
+        farm.used()+'/'+farm.capacity();
+
+    $('revenue').textContent=
+
+        money(industry.revenue);
+
+    $('completed').textContent=
+
+        industry.completed;
+
+    $('capacityInfo').textContent=
+
+        farm.used()+' of '+farm.capacity()+
+
+        ' units stored · '+
+
+        farm.freeSpace()+' available';
+
+    $('storageBar').style.width=
+
+        Math.min(100,farm.used()/farm.capacity()*100)+'%';
+
+    $('message').textContent=message;
+
+    $('message').className=
+
+        messageOK ? 'valid' : 'invalid';
+
+    updateMenus();
+
+    updatePlacement();
+
+    updateDetails();
+
+    renderMap();
+
+    renderInventory();
+
+    renderFactories();
+
+    $('log').replaceChildren();
+
+    for (const text of farm.messages) {
+
+        const div=document.createElement('div');
+
+        div.textContent=text;
+
+        $('log').appendChild(div);
+
+    }
+
+}
+
+$('reset').onclick=()=>reset(true);
+
+// ==========================================
+// AUTOMATED MANUFACTURING TESTS
+// ==========================================
+
+let passed=0;
+let failed=0;
+
+function test(name,fn) {
+
+    const row=document.createElement('div');
+
+    row.className='test';
+
+    const label=document.createElement('span');
+
+    label.textContent=name;
+
+    const result=document.createElement('strong');
+
+    try {
+
+        if (!fn()) throw new Error('Check failed');
+
+        result.textContent='PASS';
+
+        result.className='valid';
+
+        passed++;
+
+    } catch(error) {
+
+        result.textContent='FAIL';
+
+        result.className='invalid';
+
+        result.title=error.message;
+
+        failed++;
+
+    }
+
+    row.append(label,result);
+
+    $('tests').appendChild(row);
+
+}
+
+function fixture() {
+
+    const t=new TownEngine({
+
+        width:16,
+
+        height:12,
+
+        cash:10000
+
+    });
+
+    const f=new TownFarming(t);
+
+    const i=new TownIndustry(t,f);
+
+    const mill=t.place('industryMill',1,1).building.id;
+
+    const bakery=t.place('industryBakery',5,1).building.id;
+
+    const dairy=t.place('industryDairy',9,1).building.id;
+
+    const field=t.place('farmField',1,6).building.id;
+
+    i.sync();
+
+    return {t,f,i,mill,bakery,dairy,field};
+
+}
+
+test('22 factory types registered',()=>{
+
+    return Object.keys(FACTORIES).length===22;
+
+});
+
+test('30 production recipes registered',()=>{
+
+    return Object.keys(RECIPES).length===30;
+
+});
+
+test('Factories require compatible recipes',()=>{
+
+    const {i,mill}=fixture();
+
+    return !i.configure(mill,'bakeBread').ok;
+
+});
+
+test('Selecting a recipe does not consume supplies',()=>{
+
+    const {t,i,mill}=fixture();
+
+    i.add('wheat',10);
+
+    const cash=t.cash;
+
+    i.configure(mill,'millWheat');
+
+    return i.amount('wheat')===10 &&
+
+        t.cash===cash;
+
+});
+
+test('Flour production consumes wheat',()=>{
+
+    const {i,mill}=fixture();
+
+    i.add('wheat',4);
+
+    i.configure(mill,'millWheat');
+
+    i.advance();
+
+    return i.amount('wheat')===0 &&
+
+        i.amount('flour')===5;
+
+});
+
+test('Factory output enters another production chain',()=>{
+
+    const {i,mill,bakery}=fixture();
+
+    i.add('wheat',4);
+
+    i.configure(mill,'millWheat');
+
+    i.configure(bakery,'bakeBread');
+
+    i.advance();
+
+    return i.amount('bread')===4 &&
+
+        i.amount('flour')===2;
+
+});
+
+test('Multi-day recipes require processing time',()=>{
+
+    const {i,dairy}=fixture();
+
+    i.add('milk',4);
+
+    i.configure(dairy,'makeCheese');
+
+    i.advance();
+
+    if (i.amount('cheese')!==0) return false;
+
+    i.advance();
+
+    return i.amount('cheese')===3;
+
+});
+
+test('Missing ingredients prevent production',()=>{
+
+    const {t,i,mill}=fixture();
+
+    const cash=t.cash;
+
+    i.configure(mill,'millWheat');
+
+    i.advance();
+
+    return i.amount('flour')===0 &&
+
+        t.cash===cash;
+
+});
+
+test('Paused factories preserve stock',()=>{
+
+    const {i,mill}=fixture();
+
+    i.add('wheat',10);
+
+    i.configure(mill,'millWheat');
+
+    i.setRunning(mill,false);
+
+    i.advance();
+
+    return i.amount('wheat')===10 &&
+
+        i.amount('flour')===0;
+
+});
+
+test('Operating costs deducted on completed batch',()=>{
+
+    const {t,i,mill}=fixture();
+
+    i.add('wheat',4);
+
+    i.configure(mill,'millWheat');
+
+    const cash=t.cash;
+
+    i.advance();
+
+    return t.cash===cash-4;
+
+});
+
+test('Importing raw materials deducts cash',()=>{
+
+    const {t,i}=fixture();
+
+    const cash=t.cash;
+
+    const result=i.buy('timber',5);
+
+    return result.ok &&
+
+        i.amount('timber')===5 &&
+
+        t.cash===cash-result.cost;
+
+});
+
+test('Selling manufactured goods earns income',()=>{
+
+    const {t,i}=fixture();
+
+    i.add('bread',4);
+
+    const cash=t.cash;
+
+    return i.sell('bread',4).ok &&
+
+        t.cash===cash+88 &&
+
+        i.amount('bread')===0;
+
+});
+
+test('Storage shortage protects ingredients',()=>{
+
+    const {i,mill}=fixture();
+
+    i.add('wheat',4);
+
+    i.add('timber',56);
+
+    i.configure(mill,'millWheat');
+
+    i.advance();
+
+    return i.amount('wheat')===4 &&
+
+        i.amount('flour')===0;
+
+});
+
+test('Insufficient operating funds block production',()=>{
+
+    const {t,i,mill}=fixture();
+
+    i.add('wheat',4);
+
+    i.configure(mill,'millWheat');
+
+    t.cash=0;
+
+    i.advance();
+
+    return i.amount('wheat')===4 &&
+
+        i.amount('flour')===0;
+
+});
+
+test('Farming and industry share the same clock',()=>{
+
+    const {f,i,field}=fixture();
+
+    f.plant(field,'wheat');
+
+    i.advance(3);
+
+    return f.day===4 &&
+
+        f.stage(field)==='Ready to harvest';
+
+});
+
+test('Harvested crops feed manufacturing directly',()=>{
+
+    const {f,i,field,mill}=fixture();
+
+    f.plant(field,'wheat');
+
+    i.advance(3);
+
+    f.harvest(field);
+
+    i.configure(mill,'millWheat');
+
+    i.advance();
+
+    return i.amount('wheat')===20 &&
+
+        i.amount('flour')===5;
+
+});
+
+$('summary').textContent=
+
+    passed+' tests passed · '+
+
+    failed+' tests failed';
+
+$('summary').className=
+
+    failed ? 'invalid' : 'valid';
+
+// ==========================================
+// INITIALISE
+// ==========================================
+
+reset();
+
+})();
+
+</script>
+
+</body>
+</html>
